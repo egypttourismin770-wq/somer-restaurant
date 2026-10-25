@@ -836,6 +836,12 @@
         </div>
         <p class="tracking-status-message">{{ trackingStatusMessage }}</p>
 
+        <div v-if="trackingOrder.deliveryMinutes" class="tracking-delivery-estimate">
+          <span>الوقت المتوقع للتوصيل حسب منطقتك</span>
+          <strong>{{ formatDeliveryMinutes(trackingOrder.deliveryMinutes) }}</strong>
+          <small>ده وقت تقديري، وقد يتغير حسب ضغط الطلبات وحالة الطريق.</small>
+        </div>
+
         <div v-if="trackingOrder.paymentMethod !== 'cash'" class="tracking-payment-card">
           <button
             type="button"
@@ -4178,6 +4184,14 @@ textarea {
   background: #8c3030;
 }
 .tracking-payment-note { margin: 0; font-size: 12px; line-height: 1.8; }
+.tracking-delivery-estimate {
+  display: grid; gap: 6px; margin: 12px 0 16px; padding: 13px 15px;
+  border: 1px solid rgba(213, 174, 105, 0.38); border-radius: 11px;
+  background: rgba(213, 174, 105, 0.06);
+}
+.tracking-delivery-estimate span { font-size: 12px; color: #bca995; }
+.tracking-delivery-estimate strong { font-size: 18px; color: var(--accent, #d5ae69); }
+.tracking-delivery-estimate small { font-size: 10px; color: #ad9c8e; line-height: 1.7; }
 
 .status-pill.disconnected {
   border-color: #685344;
