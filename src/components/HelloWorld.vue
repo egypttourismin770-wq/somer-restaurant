@@ -345,7 +345,7 @@
             v-for="tab in adminTabs"
             :key="tab.id"
             :class="{ active: adminTab === tab.id }"
-            @click="adminTab = tab.id"
+            @click="selectAdminTab(tab.id)"
           >{{ tab.label }}</button>
         </nav>
 
@@ -439,6 +439,36 @@
               </label>
             </div>
             <p class="hint">حذف الطلب متوقف مؤقتًا لحماية بيانات الأصناف المرتبطة به.</p>
+          </article>
+        </div>
+
+        <!-- سجل واتساب (رسائل الاختبار والطلبات) -->
+        <div v-if="adminTab === 'whatsapp'" class="admin-content">
+          <div class="admin-title-row">
+            <h3>سجل رسائل واتساب</h3>
+            <button class="secondary-button" @click="loadWhatsAppMessages" :disabled="whatsappLogLoading">
+              {{ whatsappLogLoading ? 'جاري التحديث...' : 'تحديث السجل' }}
+            </button>
+          </div>
+          <p class="hint">يعرض رسائل الاختبار وإشعارات الطلبات وحالة التسليم التي وصلتنا من 360dialog.</p>
+          <div v-if="whatsappLogLoading && !whatsappLogRows.length" class="empty-state">جاري تحميل سجل واتساب...</div>
+          <div v-else-if="!whatsappLogRows.length" class="empty-state">لا توجد رسائل مسجلة بعد. شغّل اختبار واتساب بعد تفعيل الربط بقاعدة البيانات.</div>
+          <article v-for="message in whatsappLogRows" :key="message.messageId" class="admin-card whatsapp-log-card">
+            <div class="admin-title-row">
+              <strong>{{ whatsappMessageTypeLabel(message.messageType) }}</strong>
+              <span class="status-pill" :class="'whatsapp-status-' + message.status">
+                {{ whatsappMessageStatusLabel(message.status) }}
+              </span>
+            </div>
+            <p><strong>الطلب:</strong> {{ message.orderNumber ? '#' + message.orderNumber : 'رسالة اختبار' }}</p>
+            <p><strong>تاريخ التسجيل:</strong> {{ message.createdAt ? new Date(message.createdAt).toLocaleString('ar-EG') : '—' }}</p>
+            <p v-if="message.providerTimestamp"><strong>آخر تحديث من واتساب:</strong> {{ new Date(message.providerTimestamp).toLocaleString('ar-EG') }}</p>
+            <p v-if="message.lastError" class="hint error-message"><strong>تفاصيل الخطأ:</strong> {{ JSON.stringify(message.lastError) }}</p>
+            <details class="whatsapp-message-details">
+              <summary>تفاصيل تقنية</summary>
+              <p><strong>Message ID:</strong> <code>{{ message.messageId }}</code></p>
+              <p v-if="message.recipient"><strong>المستلم:</strong> {{ message.recipient }}</p>
+            </details>
           </article>
         </div>
 
@@ -808,6 +838,8 @@ export default {
       delayedNotifiedOrders: [],
       lastWhatsAppStatusRefreshAt: 0,
       whatsappStatusRefreshing: false,
+      whatsappLogRows: [],
+      whatsappLogLoading: false,
       toast: '',
       toastTimer: null,
 
@@ -818,6 +850,7 @@ export default {
         { id: 'delivery', label: 'التوصيل' },
         { id: 'settings', label: 'الإعدادات' },
         { id: 'data', label: 'بطاقة البيانات وQR' },
+        { id: 'whatsapp', label: 'سجل واتساب' },
         { id: 'integrations', label: 'أدوات الربط' }
       ]
     }
@@ -954,11 +987,12 @@ export default {
       if (
         this.adminLoggedIn &&
         this.adminOpen &&
-        this.adminTab === 'orders' &&
+        ['orders', 'whatsapp'].includes(this.adminTab) &&
         this.timerNow - this.lastWhatsAppStatusRefreshAt >= 10000
       ) {
         this.lastWhatsAppStatusRefreshAt = this.timerNow
-        this.refreshWhatsAppStatuses()
+        if (this.adminTab === 'orders') this.refreshWhatsAppStatuses()
+        else this.loadWhatsAppMessages()
       }
     }, 1000)
   },
@@ -1504,6 +1538,39 @@ export default {
       const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0')
       const seconds = String(totalSeconds % 60).padStart(2, '0')
       return (remaining < 0 ? 'تأخير ' : 'متبقي ') + hours + ':' + minutes + ':' + seconds
+    },
+
+    selectAdminTab(tabId) {
+      this.adminTab = tabId
+      if (tabId === 'whatsapp') this.loadWhatsAppMessages()
+    },
+
+    async loadWhatsAppMessages() {
+      if (!this.adminLoggedIn || !this.adminUser || this.whatsappLogLoading) return
+      this.whatsappLogLoading = true
+      try {
+        const { data, error } = await supabase
+          .from('sumer_whatsapp_messages')
+          .select('message_id,order_number,recipient,message_type,status,provider_timestamp,last_error,created_at')
+          .order('created_at', { ascending: false })
+          .limit(100)
+        if (error) throw error
+        this.whatsappLogRows = (data || []).map(row => ({
+          messageId: row.message_id,
+          orderNumber: row.order_number,
+          recipient: row.recipient || '',
+          messageType: row.message_type || 'other',
+          status: row.status || 'unknown',
+          providerTimestamp: row.provider_timestamp || '',
+          lastError: row.last_error || null,
+          createdAt: row.created_at || ''
+        }))
+      } catch (error) {
+        console.error('SUMER WhatsApp log load error:', error)
+        this.adminError = 'تعذر تحميل سجل واتساب. تحقق من صلاحيات المدير وجدول رسائل واتساب.'
+      } finally {
+        this.whatsappLogLoading = false
+      }
     },
 
     async refreshWhatsAppStatuses() {
@@ -4020,6 +4087,20 @@ textarea {
 .whatsapp-status-sent {
   border-color: rgba(116, 174, 216, 0.6);
   color: #9bcff5;
+}
+.whatsapp-log-card {
+  overflow-wrap: anywhere;
+}
+.whatsapp-message-details {
+  margin-top: 8px;
+  font-size: 12px;
+}
+.whatsapp-message-details summary {
+  cursor: pointer;
+  color: var(--accent, #d5ae69);
+}
+.whatsapp-message-details code {
+  word-break: break-all;
 }
 
 </style>
