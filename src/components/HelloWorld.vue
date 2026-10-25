@@ -571,7 +571,7 @@
             </div>
             <button class="secondary-button" type="button" @click="addSocialLink">+ إضافة رابط تواصل</button>
 
-            <p class="hint">اسم المطعم والهاتف وواتساب والعنوان والمواعيد وبيانات الدفع وروابط Facebook وInstagram تُحفظ في Supabase. الألوان والوصف المختصر والرابط العام ومدة السلايدر محفوظة محليًا في هذه النسخة.</p>
+            <p class="hint">اسم المطعم والهاتف وواتساب والعنوان والمواعيد وبيانات الدفع وروابط التواصل ورابط المنيو وخيار QR تُحفظ في قاعدة البيانات وتظهر لكل الزوار. الألوان والوصف المختصر ومدة السلايدر محفوظة محليًا في هذا المتصفح.</p>
             <div class="admin-inline">
               <button class="primary-button" type="submit" :disabled="adminBusy">{{ adminBusy ? 'جاري الحفظ...' : 'حفظ البيانات' }}</button>
             </div>
@@ -1090,7 +1090,7 @@ export default {
 
         const settingsQuery = supabase
           .from('restaurant_settings')
-          .select('id,restaurant_name,phone,whatsapp,address,opening_hours,currency,cash_on_delivery_enabled,vodafone_cash_number,instapay_handle,facebook_url,instagram_url')
+          .select('id,restaurant_name,phone,whatsapp,address,opening_hours,currency,cash_on_delivery_enabled,vodafone_cash_number,instapay_handle,facebook_url,instagram_url,public_url,menu_url,menu_qr_enabled')
           .eq('id', true)
           .maybeSingle()
 
@@ -1161,7 +1161,10 @@ export default {
             currency: row.currency || 'EGP',
             cashOnDeliveryEnabled: row.cash_on_delivery_enabled !== false,
             vodafoneWallet: row.vodafone_cash_number || '',
-            instapayAddress: row.instapay_handle || ''
+            instapayAddress: row.instapay_handle || '',
+            publicUrl: row.public_url || '',
+            menuUrl: row.menu_url || '',
+            menuQrEnabled: row.menu_qr_enabled === true
           }
 
           const customLinks = this.socialLinks.filter(link =>
@@ -2073,6 +2076,9 @@ export default {
           cash_on_delivery_enabled: this.settings.cashOnDeliveryEnabled !== false,
           vodafone_cash_number: String(this.settings.vodafoneWallet || '').trim(),
           instapay_handle: String(this.settings.instapayAddress || '').trim(),
+          public_url: String(this.settings.publicUrl || '').trim(),
+          menu_url: String(this.settings.menuUrl || '').trim(),
+          menu_qr_enabled: this.settings.menuQrEnabled === true,
           facebook_url: String(facebookUrl || '').trim(),
           instagram_url: String(instagramUrl || '').trim(),
           updated_at: new Date().toISOString()
