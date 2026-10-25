@@ -373,7 +373,7 @@
               <span>{{ formatOrderAge(order) }}</span>
             </div>
             <div
-              v-if="order.preparationDeadlineAt && !['خرج للتوصيل', 'تم التسليم', 'ملغي'].includes(order.status)"
+              v-if="order.preparationDeadlineAt && !['جاهز للتوصيل', 'خرج للتوصيل', 'تم التسليم', 'ملغي'].includes(order.status)"
               class="preparation-timer"
               :class="{ overdue: preparationRemaining(order) <= 0 }"
               role="status"
@@ -420,6 +420,7 @@
                 <select :value="order.status" @change="updateOrderStatus(order.dbId, $event.target.value)">
                   <option>جديد</option>
                   <option>قيد التجهيز</option>
+                  <option>جاهز للتوصيل</option>
                   <option>خرج للتوصيل</option>
                   <option>تم التسليم</option>
                   <option>ملغي</option>
@@ -756,7 +757,7 @@
         <p class="tracking-status-message">{{ trackingStatusMessage }}</p>
 
         <div
-          v-if="!['out_for_delivery', 'delivered', 'cancelled'].includes(trackingOrder.status)"
+          v-if="!['ready', 'out_for_delivery', 'delivered', 'cancelled'].includes(trackingOrder.status)"
           class="tracking-countdown"
           :class="{ overdue: trackingSecondsRemaining !== null && trackingSecondsRemaining <= 0 }"
         >
@@ -773,10 +774,13 @@
             <span>2</span><div><strong>قيد التجهيز</strong><small>المطعم بيحضّر طلبك</small></div>
           </li>
           <li :class="{ active: trackingStage === 2, complete: trackingStage > 2 }">
-            <span>3</span><div><strong>خرج للتوصيل</strong><small>الأوردر في الطريق</small></div>
+            <span>3</span><div><strong>جاهز للتوصيل</strong><small>الأوردر اتجهز</small></div>
           </li>
           <li :class="{ active: trackingStage === 3, complete: trackingStage > 3 }">
-            <span>4</span><div><strong>تم التسليم</strong><small>بالهنا والشفا</small></div>
+            <span>4</span><div><strong>خرج للتوصيل</strong><small>الأوردر في الطريق</small></div>
+          </li>
+          <li :class="{ active: trackingStage === 4, complete: trackingStage > 4 }">
+            <span>5</span><div><strong>تم التسليم</strong><small>بالهنا والشفا</small></div>
           </li>
         </ol>
 
@@ -1019,6 +1023,7 @@ export default {
         new: 'وصل للمطعم',
         confirmed: 'تم تأكيد الطلب',
         preparing: 'قيد التجهيز',
+        ready: 'جاهز للتوصيل',
         out_for_delivery: 'خرج للتوصيل',
         delivered: 'تم التسليم',
         cancelled: 'تم إلغاء الطلب'
@@ -1031,6 +1036,7 @@ export default {
         new: 'طلبك وصل للمطعم وجاري مراجعته وبدء التجهيز.',
         confirmed: 'المطعم أكد استلام الطلب، وبيجهّز لبدء التحضير.',
         preparing: 'طلبك قيد التجهيز في المطعم.',
+        ready: 'طلبك اتجهز وبقى جاهز لاستلام المندوب.',
         out_for_delivery: 'طلبك خرج من المطعم وهو في الطريق إليك.',
         delivered: 'تم تسليم طلبك. بالهنا والشفا!',
         cancelled: 'تم إلغاء الطلب. تواصل مع المطعم لو محتاج تفاصيل.'
@@ -1043,8 +1049,9 @@ export default {
         new: 0,
         confirmed: 0,
         preparing: 1,
-        out_for_delivery: 2,
-        delivered: 3,
+        ready: 2,
+        out_for_delivery: 3,
+        delivered: 4,
         cancelled: -1
       }
       return this.trackingOrder ? (stages[this.trackingOrder.status] ?? 0) : -1
@@ -1570,6 +1577,8 @@ export default {
         received: 'جديد',
         preparing: 'قيد التجهيز',
         processing: 'قيد التجهيز',
+        ready: 'جاهز للتوصيل',
+        prepared: 'جاهز للتوصيل',
         out_for_delivery: 'خرج للتوصيل',
         delivering: 'خرج للتوصيل',
         delivered: 'تم التسليم',
@@ -1584,6 +1593,7 @@ export default {
       const values = {
         'جديد': 'new',
         'قيد التجهيز': 'preparing',
+        'جاهز للتوصيل': 'ready',
         'خرج للتوصيل': 'out_for_delivery',
         'تم التسليم': 'delivered',
         'ملغي': 'cancelled'
