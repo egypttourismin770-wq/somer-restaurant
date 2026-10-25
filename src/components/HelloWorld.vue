@@ -368,6 +368,15 @@
               <span class="status-pill">{{ order.status }}</span>
             </div>
             <div
+              v-if="order.createdAtTimestamp && !['تم التسليم', 'ملغي'].includes(order.status)"
+              class="preparation-timer order-age-timer"
+              role="status"
+              aria-live="polite"
+            >
+              <strong>المدة منذ استلام الطلب:</strong>
+              <span>{{ formatOrderAge(order) }}</span>
+            </div>
+            <div
               v-if="order.preparationDeadlineAt && !['خرج للتوصيل', 'تم التسليم', 'ملغي'].includes(order.status)"
               class="preparation-timer"
               :class="{ overdue: preparationRemaining(order) <= 0 }"
@@ -392,6 +401,19 @@
             </p>
             <p v-else-if="order.paymentMethod !== 'cash'"><strong>تنبيه:</strong> لا يوجد مسار إيصال محفوظ لهذا الطلب.</p>
             <p><strong>التاريخ:</strong> {{ order.createdAt }}</p>
+            <section class="whatsapp-message-log" aria-label="حالات إشعارات واتساب">
+              <strong>إشعارات واتساب</strong>
+              <div v-if="order.whatsappMessages && order.whatsappMessages.length" class="whatsapp-message-list">
+                <div v-for="message in order.whatsappMessages" :key="message.messageId" class="whatsapp-message-row">
+                  <span>{{ whatsappMessageTypeLabel(message.messageType) }}</span>
+                  <span class="status-pill" :class="'whatsapp-status-' + message.status">
+                    {{ whatsappMessageStatusLabel(message.status) }}
+                  </span>
+                  <small v-if="message.lastError" class="error-message">يوجد خطأ مسجل في آخر تحديث.</small>
+                </div>
+              </div>
+              <p v-else class="hint">لم تُسجَّل رسائل واتساب لهذا الطلب بعد.</p>
+            </section>
             <p><strong>الإجمالي:</strong> {{ money(order.total) }}</p>
             <div v-for="item in order.items" :key="item.id" class="order-line">
               {{ item.name }} × {{ item.quantity }} — {{ money(item.price * item.quantity) }}
@@ -1322,9 +1344,42 @@ export default {
             preparationCompletedAt: row.preparation_completed_at || '',
             preparationMinutes: Number(row.preparation_minutes) || 30,
             delayNotifiedAt: row.delay_notified_at || '',
-            notes: row.notes || ''
+            notes: row.notes || '',
+            whatsappMessages: []
           }
         })
+
+        // Load WhatsApp message receipts for these orders using the admin-only database policy.
+        const orderIds = this.orders.map(order => order.dbId)
+        if (orderIds.length) {
+          const { data: messageRows, error: messageRowsError } = await supabase
+            .from('sumer_whatsapp_messages')
+            .select('message_id, order_id, message_type, status, provider_timestamp, last_error, created_at')
+            .in('order_id', orderIds)
+            .order('created_at', { ascending: false })
+
+          if (messageRowsError) {
+            console.warn('SUMER WhatsApp status list could not be loaded:', messageRowsError)
+          } else {
+            const messagesByOrder = new Map()
+            for (const row of (messageRows || [])) {
+              const current = messagesByOrder.get(row.order_id) || []
+              current.push({
+                messageId: row.message_id,
+                messageType: row.message_type || 'other',
+                status: row.status || 'unknown',
+                providerTimestamp: row.provider_timestamp || '',
+                lastError: row.last_error || null,
+                createdAt: row.created_at || ''
+              })
+              messagesByOrder.set(row.order_id, current)
+            }
+            this.orders = this.orders.map(order => ({
+              ...order,
+              whatsappMessages: messagesByOrder.get(order.dbId) || []
+            }))
+          }
+        }
       } catch (error) {
         console.error('SUMER orders load error:', error)
         this.adminError = 'تعذر تحميل الطلبات. تحقق من علاقة order_items وجدول orders وصلاحيات المدير.'
@@ -1382,6 +1437,45 @@ export default {
       }[method] || method
     },
 
+    orderAgeSeconds(order) {
+      const createdAt = Number(order?.createdAtTimestamp)
+      if (!Number.isFinite(createdAt) || createdAt <= 0) return null
+      return Math.max(0, Math.floor((this.timerNow - createdAt) / 1000))
+    },
+
+    formatOrderAge(order) {
+      const totalSeconds = this.orderAgeSeconds(order)
+      if (totalSeconds === null) return 'غير متاح'
+      const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0')
+      const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0')
+      const seconds = String(totalSeconds % 60).padStart(2, '0')
+      return hours + ':' + minutes + ':' + seconds
+    },
+
+    whatsappMessageTypeLabel(type) {
+      const labels = {
+        order_summary: 'ملخص الطلب',
+        order_item_image: 'صورة صنف',
+        payment_receipt: 'إيصال الدفع',
+        test_image: 'صورة اختبار',
+        test_text: 'رسالة اختبار',
+        other: 'رسالة واتساب'
+      }
+      return labels[type] || labels.other
+    },
+
+    whatsappMessageStatusLabel(status) {
+      const labels = {
+        accepted: 'تم قبول الإرسال',
+        sent: 'تم الإرسال',
+        delivered: 'تم التسليم',
+        read: 'تمت القراءة',
+        failed: 'فشل الإرسال',
+        unknown: 'حالة غير معروفة'
+      }
+      return labels[status] || labels.unknown
+    },
+
     preparationRemaining(order) {
       if (!order?.preparationDeadlineAt) return null
       const deadline = new Date(order.preparationDeadlineAt).getTime()
@@ -1402,7 +1496,7 @@ export default {
     async checkDelayedOrders() {
       if (!this.adminLoggedIn || !this.adminOpen) return
       for (const order of this.orders) {
-        if (order.status !== 'قيد التجهيز' || this.preparationRemaining(order) === null) continue
+        if (!['جديد', 'قيد التجهيز'].includes(order.status) || this.preparationRemaining(order) === null) continue
         if (
           this.preparationRemaining(order) <= 0 &&
           !order.delayNotifiedAt &&
@@ -3832,6 +3926,49 @@ textarea {
 }
 .preparation-timer b {
   font-weight: 800;
+}
+.order-age-timer {
+  border-color: rgba(116, 174, 216, 0.55);
+  background: rgba(116, 174, 216, 0.08);
+}
+.whatsapp-message-log {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(213, 174, 105, 0.25);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.12);
+}
+.whatsapp-message-log > strong {
+  display: block;
+  margin-bottom: 8px;
+}
+.whatsapp-message-list {
+  display: grid;
+  gap: 7px;
+}
+.whatsapp-message-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.whatsapp-message-row small {
+  flex-basis: 100%;
+}
+.whatsapp-status-delivered,
+.whatsapp-status-read {
+  border-color: rgba(63, 174, 115, 0.7);
+  color: #76d9a4;
+}
+.whatsapp-status-failed {
+  border-color: rgba(224, 82, 82, 0.8);
+  color: #ff7777;
+}
+.whatsapp-status-accepted,
+.whatsapp-status-sent {
+  border-color: rgba(116, 174, 216, 0.6);
+  color: #9bcff5;
 }
 
 </style>
