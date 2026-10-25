@@ -168,8 +168,9 @@ Deno.serve(async (req: Request) => {
       ? await recordTestMessage(db, textMessageId, recipient!, "test_text")
       : false;
 
+    const databaseLoggingOk = Boolean(db) && imageDatabaseSaved && textDatabaseSaved;
     return json({
-      ok: webhookTestAccepted && imageAccepted && textAccepted,
+      ok: webhookTestAccepted && imageAccepted && textAccepted && databaseLoggingOk,
       webhookConfigured: true,
       webhookTestAccepted,
       webhookTestStatus: webhookTestResponse.status,
@@ -184,6 +185,7 @@ Deno.serve(async (req: Request) => {
       textMessageId,
       textDatabaseSaved,
       databaseConfigured: Boolean(db),
+      databaseLoggingOk,
       note: "Test WhatsApp message IDs are saved to sumer_whatsapp_messages; delivery callbacks are saved by sumer-whatsapp-webhook.",
     });
   } catch (error) {
