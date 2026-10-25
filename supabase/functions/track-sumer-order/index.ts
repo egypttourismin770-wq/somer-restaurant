@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
     const { data: order, error: orderError } = await db
       .from("orders")
       .select(
-        "id,order_number,phone,order_status,created_at,preparation_started_at,preparation_deadline_at,preparation_completed_at,preparation_minutes",
+        "id,order_number,phone,order_status,created_at,preparation_started_at,preparation_deadline_at,preparation_completed_at,preparation_minutes,payment_method,payment_status,payment_reference,payment_confirmed_at",
       )
       .eq("order_number", orderNumber)
       .maybeSingle();
@@ -62,7 +62,10 @@ Deno.serve(async (req: Request) => {
 
     // Do not disclose whether an order number exists unless the phone also matches.
     if (!order || normalizePhone(order.phone) !== suppliedPhone) {
-      return json({ ok: false, error: "مش لاقيين طلب مطابق للبيانات دي." }, 404);
+      return json(
+        { ok: false, error: "مش لاقيين طلب مطابق للبيانات دي." },
+        404,
+      );
     }
 
     const { data: items, error: itemsError } = await db
@@ -86,6 +89,10 @@ Deno.serve(async (req: Request) => {
         preparationDeadlineAt: order.preparation_deadline_at,
         preparationCompletedAt: order.preparation_completed_at,
         preparationMinutes: Number(order.preparation_minutes) || 30,
+        paymentMethod: String(order.payment_method || "cash"),
+        paymentStatus: String(order.payment_status || "review"),
+        paymentReference: String(order.payment_reference || ""),
+        paymentConfirmedAt: order.payment_confirmed_at,
         items: (items || []).map((item) => ({
           id: String(item.id),
           name: String(item.product_name || "صنف"),
