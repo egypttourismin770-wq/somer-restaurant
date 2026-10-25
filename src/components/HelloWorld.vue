@@ -21,7 +21,8 @@
     <div class="top-actions">
       <a v-if="settings.whatsapp" class="whatsapp-top" :href="whatsappUrl" target="_blank" rel="noopener">واتساب</a>
       <button class="cart-button" @click="cartOpen = true">🛒 السلة <span>{{ cartCount }}</span></button>
-      <button class="icon-button" title="إدارة الموقع" @click="openAdmin">⚙</button>
+      <a class="orders-dashboard-top-link" :href="ordersDashboardUrl">لوحة الأوردرات</a>
+      <button class="icon-button" title="إدارة الموقع والإعدادات" @click="openAdmin">⚙</button>
     </div>
   </header>
 
@@ -405,94 +406,42 @@
 
         <p v-if="adminError" class="hint error-message">{{ adminError }}</p>
 
-        <!-- إدارة الطلبات -->
-        <div v-if="adminTab === 'orders'" class="admin-content">
+        <!-- إيصالات الدفع وتحويلات العملاء — لمدير الموقع فقط -->
+        <div v-if="adminTab === 'payments'" class="admin-content">
           <div class="admin-title-row">
-            <h3>الطلبات والعملاء</h3>
-            <button class="secondary-button" @click="loadOrders">تحديث الطلبات</button>
-            <button class="secondary-button" @click="exportOrders">تصدير CSV</button>
+            <h3>إيصالات الدفع ومراجعة التحويلات</h3>
+            <button class="secondary-button" type="button" @click="loadOrders" :disabled="ordersLoading">
+              {{ ordersLoading ? 'جاري التحديث...' : 'تحديث الإيصالات' }}
+            </button>
           </div>
-
-          <div v-if="ordersLoading" class="empty-state">جاري تحميل الطلبات...</div>
-          <div v-else-if="!orders.length" class="empty-state">لا توجد طلبات في قاعدة البيانات حتى الآن.</div>
-
-          <article v-for="order in sortedOrders" :key="order.dbId" class="admin-card">
+          <p class="hint">هذه الشاشة خاصة بمدير الموقع لمراجعة صور التحويل وتأكيد الدفع. الموظفون في لوحة الأوردرات لا تظهر لهم هذه البيانات.</p>
+          <div v-if="ordersLoading && !orders.length" class="empty-state">جاري تحميل بيانات الدفع...</div>
+          <div v-else-if="!paymentOrders.length" class="empty-state">لا توجد تحويلات إلكترونية مسجلة حتى الآن.</div>
+          <article v-for="order in paymentOrders" :key="order.dbId" class="admin-card">
             <div class="admin-title-row">
-              <strong>طلب {{ order.id }}</strong>
-              <span class="status-pill">{{ order.status }}</span>
-            </div>
-            <div
-              v-if="order.createdAtTimestamp && !['تم التسليم', 'ملغي'].includes(order.status)"
-              class="preparation-timer order-age-timer"
-              role="status"
-              aria-live="polite"
-            >
-              <strong>المدة منذ استلام الطلب:</strong>
-              <span>{{ formatOrderAge(order) }}</span>
-            </div>
-            <div
-              v-if="order.preparationDeadlineAt && !['جاهز للتوصيل', 'خرج للتوصيل', 'تم التسليم', 'ملغي'].includes(order.status)"
-              class="preparation-timer"
-              :class="{ overdue: preparationRemaining(order) <= 0 }"
-              role="status"
-              aria-live="polite"
-            >
-              <strong>مؤقّت التجهيز:</strong>
-              <span>{{ formatPreparationRemaining(order) }}</span>
-              <b v-if="preparationRemaining(order) <= 0"> — الطلب متأخر</b>
+              <strong>الأوردر #{{ order.id }}</strong>
+              <span class="status-pill" :class="{ paid: order.paymentStatusRaw === 'paid' }">{{ order.paymentStatus }}</span>
             </div>
             <p><strong>العميل:</strong> {{ order.customer.name }} — {{ order.customer.phone }}</p>
-            <p><strong>الهاتف البديل:</strong> {{ order.customer.phone2 || '—' }}</p>
-            <p><strong>وقت التوصيل المتوقع:</strong> {{ formatDeliveryMinutes(order.deliveryMinutes) }}</p>
-            <p><strong>العنوان:</strong> {{ order.customer.areaName }}، {{ order.customer.street }}، الدور {{ order.customer.floor || '—' }}، شقة {{ order.customer.apartment || '—' }}</p>
-            <p><strong>الدفع:</strong> {{ paymentLabel(order.paymentMethod) }} —
-              <span class="status-pill" :class="{ paid: order.paymentStatusRaw === 'paid' }">{{ order.paymentStatus }}</span>
-            </p>
-            <p v-if="order.paymentReference"><strong>رقم العملية:</strong> {{ order.paymentReference }}</p>
+            <p><strong>طريقة التحويل:</strong> {{ paymentLabel(order.paymentMethod) }}</p>
+            <p><strong>الإجمالي المطلوب:</strong> {{ money(order.total) }}</p>
+            <p v-if="order.paymentReference"><strong>رقم مرجع التحويل:</strong> {{ order.paymentReference }}</p>
+            <p><strong>وقت الطلب:</strong> {{ order.createdAt }}</p>
             <div v-if="order.paymentProofPath" class="payment-proof-admin">
               <div class="admin-inline">
-                <strong>صورة إيصال التحويل:</strong>
+                <strong>إيصال التحويل:</strong>
                 <button class="secondary-button small-button" type="button" @click="preparePaymentProof(order)">
                   {{ order.paymentProofUrl ? 'تحديث صورة الإيصال' : 'عرض صورة الإيصال هنا' }}
                 </button>
               </div>
               <a v-if="order.paymentProofUrl" class="payment-proof-preview-link" :href="order.paymentProofUrl" target="_blank" rel="noopener">
-                <img class="payment-proof-admin-preview" :src="order.paymentProofUrl" :alt="'إيصال التحويل للطلب ' + order.id" />
+                <img class="payment-proof-admin-preview" :src="order.paymentProofUrl" :alt="'إيصال التحويل للأوردر ' + order.id" />
               </a>
-              <p v-if="order.paymentProofUrl" class="hint">الصورة ظاهرة هنا؛ اضغط عليها لفتحها بالحجم الكامل.</p>
+              <p v-if="order.paymentProofUrl" class="hint">اضغط على الصورة لفتحها بالحجم الكامل.</p>
             </div>
-            <p v-else-if="order.paymentMethod !== 'cash'"><strong>تنبيه:</strong> لا يوجد مسار إيصال محفوظ لهذا الطلب.</p>
-            <p><strong>التاريخ:</strong> {{ order.createdAt }}</p>
-            <section class="whatsapp-message-log" aria-label="حالات إشعارات واتساب">
-              <strong>إشعارات واتساب</strong>
-              <div v-if="order.whatsappMessages && order.whatsappMessages.length" class="whatsapp-message-list">
-                <div v-for="message in order.whatsappMessages" :key="message.messageId" class="whatsapp-message-row">
-                  <span>{{ whatsappMessageTypeLabel(message.messageType) }}</span>
-                  <span class="status-pill" :class="'whatsapp-status-' + message.status">
-                    {{ whatsappMessageStatusLabel(message.status) }}
-                  </span>
-                  <small v-if="message.lastError" class="error-message">يوجد خطأ مسجل في آخر تحديث.</small>
-                </div>
-              </div>
-              <p v-else class="hint">لم تُسجَّل رسائل واتساب لهذا الطلب بعد.</p>
-            </section>
-            <p><strong>الإجمالي:</strong> {{ money(order.total) }}</p>
-            <div v-for="item in order.items" :key="item.id" class="order-line">
-              {{ item.name }} × {{ item.quantity }} — {{ money(item.price * item.quantity) }}
-            </div>
-            <p v-if="order.notes"><strong>ملاحظات:</strong> {{ order.notes }}</p>
+            <p v-else class="hint error-message">لا توجد صورة إيصال محفوظة لهذا التحويل.</p>
             <div class="admin-inline">
-              <label>حالة الطلب
-                <select :value="order.status" @change="updateOrderStatus(order.dbId, $event.target.value)">
-                  <option>جديد</option>
-                  <option>قيد التجهيز</option>
-                  <option>جاهز للتوصيل</option>
-                  <option>خرج للتوصيل</option>
-                  <option>تم التسليم</option>
-                  <option>ملغي</option>
-                </select>
-              </label>
-              <label v-if="order.paymentMethod !== 'cash'">حالة الدفع
+              <label>حالة الدفع
                 <select :value="order.paymentStatusRaw" @change="updatePaymentStatus(order.dbId, $event.target.value)">
                   <option value="pending">مراجعة مطلوبة</option>
                   <option value="review">مراجعة مطلوبة</option>
@@ -500,15 +449,41 @@
                   <option value="failed">مرفوض</option>
                 </select>
               </label>
-              <button
-                v-if="order.paymentMethod !== 'cash' && order.paymentStatusRaw !== 'paid'"
-                class="confirm-payment-button"
-                type="button"
-                @click="updatePaymentStatus(order.dbId, 'paid')"
-              >✓ تأكيد استلام الدفع</button>
-              <span v-else-if="order.paymentMethod !== 'cash'" class="payment-confirmed-admin">✓ تم تأكيد الدفع</span>
+              <button v-if="order.paymentStatusRaw !== 'paid'" class="confirm-payment-button" type="button" @click="updatePaymentStatus(order.dbId, 'paid')">✓ تأكيد استلام الدفع</button>
+              <span v-else class="payment-confirmed-admin">✓ تم تأكيد الدفع</span>
             </div>
-            <p class="hint">حذف الطلب متوقف مؤقتًا لحماية بيانات الأصناف المرتبطة به.</p>
+          </article>
+        </div>
+
+        <!-- إدارة حسابات موظفي الأوردرات — لمدير الموقع فقط -->
+        <div v-if="adminTab === 'staff'" class="admin-content">
+          <h3>حسابات موظفي لوحة الأوردرات</h3>
+          <p class="hint">أنشئ لكل موظف حسابًا منفصلًا. الحساب ده هيفتح لوحة الطلبات فقط، ومش هيفتح ترس إدارة الموقع أو إيصالات الدفع. تقدر تختار نفس كلمة المرور لو كنت تقصد رمزًا موحدًا، لكن كلمة مرور مختلفة لكل موظف أكثر أمانًا.</p>
+          <form class="admin-form" @submit.prevent="createStaffAccount">
+            <h4>إضافة موظف جديد</h4>
+            <label>البريد الإلكتروني للموظف *
+              <input v-model.trim="staffEmail" type="email" required maxlength="254" autocomplete="off" placeholder="employee@example.com" />
+            </label>
+            <label>كلمة مرور الموظف (8 أحرف على الأقل) *
+              <input v-model="staffPassword" type="password" required minlength="8" maxlength="128" autocomplete="new-password" placeholder="كلمة مرور حساب الموظف" />
+            </label>
+            <div class="admin-inline">
+              <button class="primary-button" type="submit" :disabled="adminBusy">{{ adminBusy ? 'جاري إنشاء الحساب...' : 'إنشاء حساب وصلاحية الأوردرات' }}</button>
+            </div>
+          </form>
+          <div class="admin-title-row">
+            <h4>الحسابات المفعلة</h4>
+            <button class="secondary-button" type="button" @click="loadStaffAccounts" :disabled="staffLoading">{{ staffLoading ? 'جاري التحميل...' : 'تحديث القائمة' }}</button>
+          </div>
+          <div v-if="staffLoading && !staffAccounts.length" class="empty-state">جاري تحميل حسابات الموظفين...</div>
+          <div v-else-if="!staffAccounts.length" class="empty-state">لسه مفيش حسابات موظفين مفعلة.</div>
+          <article v-for="staff in staffAccounts" :key="staff.userId" class="admin-list-item">
+            <div class="admin-list-main">
+              <strong>{{ staff.email }}</strong>
+              <small>صلاحية: لوحة الأوردرات فقط</small>
+              <small>تاريخ الإضافة: {{ staff.createdAt ? new Date(staff.createdAt).toLocaleDateString('ar-EG') : '—' }}</small>
+            </div>
+            <button class="danger-button" type="button" @click="removeStaffAccount(staff.userId)">إلغاء الصلاحية</button>
           </article>
         </div>
 
@@ -803,6 +778,7 @@
   </div>
 
   <!-- متابعة طلب العميل -->
+  <a v-if="!adminOpen" class="orders-dashboard-fab" :href="ordersDashboardUrl">☷ لوحة الأوردرات</a>
   <button v-if="!adminOpen" class="customer-tracking-fab" type="button" @click="openTracking()">◷ متابعة طلبك</button>
 
   <div v-if="trackingModalOpen" class="overlay tracking-overlay" @click.self="closeTracking">
@@ -1008,7 +984,11 @@ export default {
       loginError: '',
       adminError: '',
       adminBusy: false,
-      adminTab: 'orders',
+      adminTab: 'products',
+      staffEmail: '',
+      staffPassword: '',
+      staffAccounts: [],
+      staffLoading: false,
 
       productFormOpen: false,
       editingId: null,
@@ -1029,11 +1009,12 @@ export default {
       toastTimer: null,
 
       adminTabs: [
-        { id: 'orders', label: 'الطلبات' },
         { id: 'products', label: 'المنيو' },
         { id: 'slides', label: 'الصور' },
         { id: 'delivery', label: 'التوصيل' },
-        { id: 'settings', label: 'الإعدادات' },
+        { id: 'settings', label: 'إعدادات الموقع والدفع' },
+        { id: 'payments', label: 'إيصالات الدفع' },
+        { id: 'staff', label: 'موظفو الأوردرات' },
         { id: 'data', label: 'بطاقة بيانات المطعم' },
         { id: 'whatsapp', label: 'سجل واتساب' },
         { id: 'integrations', label: 'أدوات الربط' }
@@ -1125,6 +1106,11 @@ export default {
         encodeURIComponent(this.settings.publicUrl || '')
     },
 
+    ordersDashboardUrl() {
+      const base = (process.env.BASE_URL || '/').replace(/\/?$/, '/')
+      return base + 'orders/'
+    },
+
     menuQrTarget() {
       const explicitTarget = String(this.settings.menuUrl || '').trim()
       const publicUrl = String(this.settings.publicUrl || '').trim()
@@ -1195,6 +1181,10 @@ export default {
 
     sortedOrders() {
       return [...this.orders].sort((a, b) => Number(b.createdAtTimestamp || 0) - Number(a.createdAtTimestamp || 0))
+    },
+
+    paymentOrders() {
+      return this.sortedOrders.filter(order => order.paymentMethod !== 'cash')
     }
   },
 
@@ -1545,6 +1535,7 @@ export default {
     },
 
     async loadOrders() {
+      if (this.ordersLoading) return
       if (!this.adminLoggedIn || !this.adminUser) {
         this.orders = []
         return
@@ -1801,6 +1792,70 @@ export default {
     selectAdminTab(tabId) {
       this.adminTab = tabId
       if (tabId === 'whatsapp') this.loadWhatsAppMessages()
+      if (tabId === 'payments' && !this.orders.length) this.loadOrders()
+      if (tabId === 'staff') this.loadStaffAccounts()
+    },
+
+    async loadStaffAccounts() {
+      if (!this.adminLoggedIn || !this.adminUser || this.staffLoading) return
+      this.staffLoading = true
+      try {
+        const { data, error } = await supabase.functions.invoke('sumer-orders-dashboard', {
+          body: { action: 'list_staff' }
+        })
+        if (error) throw error
+        if (!data?.ok) throw new Error(data?.error || 'تعذر تحميل حسابات الموظفين.')
+        this.staffAccounts = Array.isArray(data.staffUsers) ? data.staffUsers : []
+      } catch (error) {
+        console.error('SUMER staff list error:', error)
+        this.adminError = error.message || 'تعذر تحميل حسابات موظفي الأوردرات.'
+      } finally {
+        this.staffLoading = false
+      }
+    },
+
+    async createStaffAccount() {
+      if (!this.adminLoggedIn || this.adminBusy) return
+      this.adminBusy = true
+      this.adminError = ''
+      try {
+        const { data, error } = await supabase.functions.invoke('sumer-orders-dashboard', {
+          body: {
+            action: 'create_staff',
+            email: this.staffEmail,
+            password: this.staffPassword
+          }
+        })
+        if (error) throw error
+        if (!data?.ok) throw new Error(data?.error || 'تعذر إنشاء حساب الموظف.')
+        this.staffEmail = ''
+        this.staffPassword = ''
+        this.showToast('تم إنشاء حساب الموظف وتفعيل صلاحية لوحة الأوردرات فقط.')
+        await this.loadStaffAccounts()
+      } catch (error) {
+        console.error('SUMER staff create error:', error)
+        this.adminError = error.message || 'تعذر إنشاء حساب الموظف.'
+      } finally {
+        this.adminBusy = false
+      }
+    },
+
+    async removeStaffAccount(userId) {
+      if (!this.adminLoggedIn || !userId) return
+      if (!confirm('سيتم إيقاف صلاحية لوحة الأوردرات لهذا الحساب فقط. لن يُحذف الحساب نفسه. هل تريد المتابعة؟')) return
+      this.adminError = ''
+      try {
+        const { data, error } = await supabase.functions.invoke('sumer-orders-dashboard', {
+          body: { action: 'remove_staff', userId }
+        })
+        if (error) throw error
+        if (!data?.ok) throw new Error(data?.error || 'تعذر إيقاف صلاحية الموظف.')
+        this.staffAccounts = this.staffAccounts.filter(item => item.userId !== userId)
+        this.showToast('تم إيقاف صلاحية لوحة الأوردرات لهذا الموظف.')
+      } catch (error) {
+        console.error('SUMER staff revoke error:', error)
+        this.adminError = error.message || 'تعذر إيقاف صلاحية الموظف.'
+      }
     },
 
     async loadWhatsAppMessages() {
@@ -2393,7 +2448,7 @@ export default {
         this.adminPassword = ''
 
         await this.loadData()
-        this.adminTab = 'orders'
+        this.adminTab = 'products'
         this.showToast('تم تسجيل دخول الإدارة.')
       } catch (error) {
         console.error('SUMER admin login error:', error)
@@ -4060,6 +4115,22 @@ textarea {
   font-size: 11px;
 }
 
+.orders-dashboard-top-link {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 35px; padding: 7px 11px; border: 1px solid rgba(213,174,105,.6);
+  border-radius: 8px; color: #f3dfbb; background: rgba(213,174,105,.08);
+  text-decoration: none; font-size: 12px; font-weight: 800; white-space: nowrap;
+}
+.orders-dashboard-fab {
+  position: fixed; z-index: 12; left: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 9px 14px; border: 1px solid rgba(213,174,105,.62);
+  border-radius: 28px; color: #f4e5ca; background: #211b20;
+  box-shadow: 0 8px 28px rgba(0,0,0,.35); text-decoration: none;
+  font-size: 12px; font-weight: 900; white-space: nowrap;
+}
+
 .checkout-step { display: grid; gap: 16px; }
 .checkout-step-heading {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -4712,7 +4783,9 @@ textarea {
 .tracking-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
 .tracking-actions small { color: #ad9c8e; font-size: 11px; }
 @media (max-width: 520px) {
-  .customer-tracking-fab { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); min-height: 44px; padding: 9px 14px; }
+  .customer-tracking-fab { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); min-height: 44px; padding: 9px 12px; font-size: 12px; }
+  .orders-dashboard-fab { left: 12px; bottom: max(12px, env(safe-area-inset-bottom)); min-height: 44px; padding: 9px 12px; font-size: 11px; }
+  .orders-dashboard-top-link { padding: 7px 8px; font-size: 11px; }
   .tracking-modal { padding: 16px; }
 }
 </style>
