@@ -251,9 +251,11 @@
           </p>
           <label class="upload-label">
             صورة إيصال التحويل * (مطلوبة)
-            <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" required @change="handleProofUpload" />
+            <input id="payment-proof-upload" class="payment-proof-input" type="file" accept="image/*" required @change="handleProofUpload" />
+            <small class="hint">اختار صورة الإيصال من معرض الصور. بعد تأكيد الطلب هتتربط برقم الأوردر وتتبعت للمطعم على واتساب.</small>
           </label>
-          <p v-if="proofFileName" class="hint">تم اختيار: {{ proofFileName }}</p>
+          <p v-if="proofFileName" class="hint">تم اختيار الصورة: {{ proofFileName }}</p>
+          <img v-if="paymentProofPreviewUrl" class="payment-proof-selection-preview" :src="paymentProofPreviewUrl" alt="معاينة إيصال التحويل المختار" />
           <label class="upload-label">رقم العملية (اختياري)
             <input v-model.trim="checkout.paymentReference" maxlength="120" placeholder="رقم مرجع التحويل إن وُجد" />
           </label>
@@ -390,11 +392,18 @@
               <span class="status-pill" :class="{ paid: order.paymentStatusRaw === 'paid' }">{{ order.paymentStatus }}</span>
             </p>
             <p v-if="order.paymentReference"><strong>رقم العملية:</strong> {{ order.paymentReference }}</p>
-            <p v-if="order.paymentProofPath">
-              <strong>إيصال التحويل:</strong>
-              <button class="secondary-button small-button" @click="preparePaymentProof(order)">تجهيز رابط عرض الإيصال</button>
-              <a v-if="order.paymentProofUrl" class="proof-link" :href="order.paymentProofUrl" target="_blank" rel="noopener">عرض الإيصال في تبويب جديد</a>
-            </p>
+            <div v-if="order.paymentProofPath" class="payment-proof-admin">
+              <div class="admin-inline">
+                <strong>صورة إيصال التحويل:</strong>
+                <button class="secondary-button small-button" type="button" @click="preparePaymentProof(order)">
+                  {{ order.paymentProofUrl ? 'تحديث صورة الإيصال' : 'عرض صورة الإيصال هنا' }}
+                </button>
+              </div>
+              <a v-if="order.paymentProofUrl" class="payment-proof-preview-link" :href="order.paymentProofUrl" target="_blank" rel="noopener">
+                <img class="payment-proof-admin-preview" :src="order.paymentProofUrl" :alt="'إيصال التحويل للطلب ' + order.id" />
+              </a>
+              <p v-if="order.paymentProofUrl" class="hint">الصورة ظاهرة هنا؛ اضغط عليها لفتحها بالحجم الكامل.</p>
+            </div>
             <p v-else-if="order.paymentMethod !== 'cash'"><strong>تنبيه:</strong> لا يوجد مسار إيصال محفوظ لهذا الطلب.</p>
             <p><strong>التاريخ:</strong> {{ order.createdAt }}</p>
             <section class="whatsapp-message-log" aria-label="حالات إشعارات واتساب">
@@ -434,6 +443,13 @@
                   <option value="failed">مرفوض</option>
                 </select>
               </label>
+              <button
+                v-if="order.paymentMethod !== 'cash' && order.paymentStatusRaw !== 'paid'"
+                class="confirm-payment-button"
+                type="button"
+                @click="updatePaymentStatus(order.dbId, 'paid')"
+              >✓ تأكيد استلام الدفع</button>
+              <span v-else-if="order.paymentMethod !== 'cash'" class="payment-confirmed-admin">✓ تم تأكيد الدفع</span>
             </div>
             <p class="hint">حذف الطلب متوقف مؤقتًا لحماية بيانات الأصناف المرتبطة به.</p>
           </article>
@@ -756,6 +772,30 @@
         </div>
         <p class="tracking-status-message">{{ trackingStatusMessage }}</p>
 
+        <div v-if="trackingOrder.paymentMethod !== 'cash'" class="tracking-payment-card">
+          <button
+            type="button"
+            disabled
+            class="tracking-payment-button"
+            :class="{
+              paid: trackingOrder.paymentStatus === 'paid',
+              rejected: ['failed', 'rejected', 'declined'].includes(trackingOrder.paymentStatus)
+            }"
+          >
+            {{
+              trackingOrder.paymentStatus === 'paid'
+                ? '✓ تم الدفع'
+                : ['failed', 'rejected', 'declined'].includes(trackingOrder.paymentStatus)
+                  ? '⚠ التحويل محتاج مراجعة'
+                  : '⌛ في انتظار تأكيد الدفع'
+            }}
+          </button>
+          <p v-if="trackingOrder.paymentStatus === 'paid'" class="tracking-payment-note">المطعم أكد استلام المبلغ بنجاح.</p>
+          <p v-else-if="['failed', 'rejected', 'declined'].includes(trackingOrder.paymentStatus)" class="tracking-payment-note">راجع المطعم للتأكد من بيانات التحويل أو صورة الإيصال.</p>
+          <p v-else class="tracking-payment-note">تم إرسال الإيصال مع الطلب. هتظهر علامة «تم الدفع» باللون الأخضر بعد ما المطعم يراجع التحويل ويؤكده.</p>
+          <p v-if="trackingOrder.paymentReference" class="hint">رقم مرجع التحويل: {{ trackingOrder.paymentReference }}</p>
+        </div>
+
         <div
           v-if="!['ready', 'out_for_delivery', 'delivered', 'cancelled'].includes(trackingOrder.status)"
           class="tracking-countdown"
@@ -880,6 +920,7 @@ export default {
       checkout: this.emptyCheckout(),
       proofFileName: '',
       paymentProofFile: null,
+      paymentProofPreviewUrl: '',
       orderError: '',
       sending: false,
 
@@ -1158,6 +1199,7 @@ export default {
 
   beforeUnmount() {
     this.stopSlideshow()
+    this.clearPaymentProofPreview()
     if (this.toastTimer) clearTimeout(this.toastTimer)
     if (this.timerInterval) clearInterval(this.timerInterval)
   },
@@ -1850,7 +1892,7 @@ export default {
         const { data, error } = await supabase
           .storage
           .from('sumer-payment-proofs')
-          .createSignedUrl(order.paymentProofPath, 60)
+          .createSignedUrl(order.paymentProofPath, 600)
 
         if (error) throw error
         order.paymentProofUrl = data.signedUrl
@@ -1940,10 +1982,18 @@ export default {
       this.orderError = ''
     },
 
+    clearPaymentProofPreview() {
+      if (this.paymentProofPreviewUrl && typeof URL !== 'undefined') {
+        URL.revokeObjectURL(this.paymentProofPreviewUrl)
+      }
+      this.paymentProofPreviewUrl = ''
+    },
+
     handleProofUpload(event) {
       const file = event.target.files && event.target.files[0]
       const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/avif']
       this.orderError = ''
+      this.clearPaymentProofPreview()
 
       if (!file) {
         this.paymentProofFile = null
@@ -1961,6 +2011,7 @@ export default {
 
       this.paymentProofFile = file
       this.proofFileName = file.name
+      this.paymentProofPreviewUrl = URL.createObjectURL(file)
     },
 
     async submitOrder() {
@@ -2050,6 +2101,7 @@ export default {
         this.checkout = this.emptyCheckout()
         this.proofFileName = ''
         this.paymentProofFile = null
+        this.clearPaymentProofPreview()
         this.checkoutOpen = false
 
         this.showToast('تم إرسال الطلب إلى قاعدة البيانات.')
@@ -3883,6 +3935,95 @@ textarea {
   color: var(--accent);
   font-size: 11px;
 }
+
+.payment-proof-input {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px dashed #7f6245;
+  border-radius: 9px;
+  color: var(--text, #f7f0e8);
+  background: var(--card, #241d1b);
+}
+
+.payment-proof-selection-preview {
+  display: block;
+  max-width: min(100%, 320px);
+  max-height: 260px;
+  margin-top: 10px;
+  object-fit: contain;
+  border: 1px solid rgba(213, 174, 105, 0.4);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.payment-proof-admin {
+  margin: 8px 0 14px;
+  padding: 10px;
+  border: 1px solid rgba(213, 174, 105, 0.25);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.payment-proof-preview-link { display: inline-block; max-width: 100%; }
+.payment-proof-admin-preview {
+  display: block;
+  max-width: min(100%, 440px);
+  max-height: 380px;
+  margin-top: 10px;
+  object-fit: contain;
+  border: 1px solid rgba(213, 174, 105, 0.4);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.confirm-payment-button,
+.payment-confirmed-admin,
+.tracking-payment-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 9px 13px;
+  border: 1px solid #147c43;
+  border-radius: 9px;
+  color: #fff;
+  background: #138747;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.confirm-payment-button { cursor: pointer; }
+.payment-confirmed-admin { background: #176c3d; }
+.tracking-payment-card {
+  display: grid;
+  justify-items: start;
+  gap: 7px;
+  margin: 12px 0 18px;
+  padding: 14px;
+  border: 1px solid rgba(213, 174, 105, 0.28);
+  border-radius: 12px;
+  background: rgba(213, 174, 105, 0.06);
+}
+.tracking-payment-button {
+  opacity: 1;
+  cursor: default;
+  border-color: #9a6b28;
+  background: #8a6226;
+  color: #fff;
+}
+.tracking-payment-button:disabled { opacity: 1; }
+.tracking-payment-button.paid {
+  border-color: #147c43;
+  background: #138747;
+}
+.tracking-payment-button.rejected {
+  border-color: #aa3e3e;
+  background: #8c3030;
+}
+.tracking-payment-note { margin: 0; font-size: 12px; line-height: 1.8; }
 
 .status-pill.disconnected {
   border-color: #685344;
