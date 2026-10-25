@@ -234,7 +234,7 @@ async function notifyWhatsAppForSumerOrder(args: {
             caption: "🧾 إيصال الدفع للطلب #" + args.orderNumber +
               "\nالعميل: " + args.customerName +
               "\nطريقة الدفع: " + (args.paymentMethod === "vodafone_cash" ? "فودافون كاش" : "إنستاباي") +
-              (args.paymentReference ? "\nرقم العملية: " + args.paymentReference : ""),
+              "\nرقم مرجع التحويل: " + (args.paymentReference || "لم يُدخل في الطلب"),
           },
         }),
       });
@@ -306,7 +306,7 @@ async function notifyWhatsAppForSumerOrder(args: {
     "الإجمالي النهائي شامل التوصيل: " + args.total.toFixed(2) + " جنيه",
     "طريقة الدفع: " + paymentLabel,
     args.paymentDestination ? "بيانات التحويل: " + args.paymentDestination : "",
-    args.paymentReference ? "رقم العملية: " + args.paymentReference : "",
+    args.paymentMethod !== "cash" ? "رقم مرجع التحويل: " + (args.paymentReference || "لم يُدخل في الطلب") : "",
     args.paymentMethod !== "cash" ? "حالة الدفع: الإيصال مرفق للمراجعة — لم يتم تأكيد الدفع تلقائيًا" : "",
     args.notes ? "ملاحظات العميل: " + args.notes : "",
   ].filter(line => line !== "").join("\n").slice(0, 3900);
