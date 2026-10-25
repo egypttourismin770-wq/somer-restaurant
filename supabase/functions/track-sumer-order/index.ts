@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
     const { data: order, error: orderError } = await db
       .from("orders")
       .select(
-        "id,order_number,phone,order_status,created_at,preparation_started_at,preparation_deadline_at,preparation_completed_at,preparation_minutes,payment_method,payment_status,payment_reference,payment_confirmed_at",
+        "id,order_number,phone,order_status,created_at,preparation_started_at,preparation_deadline_at,preparation_completed_at,preparation_minutes,payment_method,payment_status,payment_reference,payment_confirmed_at,delivery_minutes",
       )
       .eq("order_number", orderNumber)
       .maybeSingle();
@@ -89,6 +89,7 @@ Deno.serve(async (req: Request) => {
         preparationDeadlineAt: order.preparation_deadline_at,
         preparationCompletedAt: order.preparation_completed_at,
         preparationMinutes: Number(order.preparation_minutes) || 30,
+        deliveryMinutes: Number(order.delivery_minutes) || 45,
         paymentMethod: String(order.payment_method || "cash"),
         paymentStatus: String(order.payment_status || "review"),
         paymentReference: String(order.payment_reference || ""),
