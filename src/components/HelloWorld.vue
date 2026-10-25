@@ -367,6 +367,17 @@
               <strong>طلب {{ order.id }}</strong>
               <span class="status-pill">{{ order.status }}</span>
             </div>
+            <div
+              v-if="order.preparationDeadlineAt && !['خرج للتوصيل', 'تم التسليم', 'ملغي'].includes(order.status)"
+              class="preparation-timer"
+              :class="{ overdue: preparationRemaining(order) <= 0 }"
+              role="status"
+              aria-live="polite"
+            >
+              <strong>مؤقّت التجهيز:</strong>
+              <span>{{ formatPreparationRemaining(order) }}</span>
+              <b v-if="preparationRemaining(order) <= 0"> — الطلب متأخر</b>
+            </div>
             <p><strong>العميل:</strong> {{ order.customer.name }} — {{ order.customer.phone }}</p>
             <p><strong>الهاتف البديل:</strong> {{ order.customer.phone2 || '—' }}</p>
             <p><strong>العنوان:</strong> {{ order.customer.areaName }}، {{ order.customer.street }}، الدور {{ order.customer.floor || '—' }}، شقة {{ order.customer.apartment || '—' }}</p>
@@ -405,7 +416,7 @@
                 </select>
               </label>
             </div>
-            <button class="danger-button" @click="deleteOrder(order.dbId)">حذف الطلب</button>
+            <p class="hint">حذف الطلب متوقف مؤقتًا لحماية بيانات الأصناف المرتبطة به.</p>
           </article>
         </div>
 
@@ -770,6 +781,9 @@ export default {
 
       slideIndex: 0,
       slideTimer: null,
+      timerNow: Date.now(),
+      timerInterval: null,
+      delayedNotifiedOrders: [],
       toast: '',
       toastTimer: null,
 
@@ -908,6 +922,10 @@ export default {
   created() {
     this.loadLocalPreferences()
     this.startSlideshow()
+    this.timerInterval = setInterval(() => {
+      this.timerNow = Date.now()
+      this.checkDelayedOrders()
+    }, 1000)
   },
 
   async mounted() {
@@ -938,6 +956,7 @@ export default {
   beforeUnmount() {
     this.stopSlideshow()
     if (this.toastTimer) clearTimeout(this.toastTimer)
+    if (this.timerInterval) clearInterval(this.timerInterval)
   },
 
   methods: {
@@ -1234,6 +1253,11 @@ export default {
             payment_confirmed_at,
             payment_confirmed_by,
             order_status,
+            preparation_started_at,
+            preparation_deadline_at,
+            preparation_completed_at,
+            preparation_minutes,
+            delay_notified_at,
             subtotal,
             delivery_fee,
             total,
@@ -1293,6 +1317,11 @@ export default {
             paymentConfirmedBy: row.payment_confirmed_by || '',
             paymentProofUrl: '',
             status: this.orderStatusLabel(row.order_status),
+            preparationStartedAt: row.preparation_started_at || '',
+            preparationDeadlineAt: row.preparation_deadline_at || '',
+            preparationCompletedAt: row.preparation_completed_at || '',
+            preparationMinutes: Number(row.preparation_minutes) || 30,
+            delayNotifiedAt: row.delay_notified_at || '',
             notes: row.notes || ''
           }
         })
@@ -1353,6 +1382,39 @@ export default {
       }[method] || method
     },
 
+    preparationRemaining(order) {
+      if (!order?.preparationDeadlineAt) return null
+      const deadline = new Date(order.preparationDeadlineAt).getTime()
+      if (!Number.isFinite(deadline)) return null
+      return Math.floor((deadline - this.timerNow) / 1000)
+    },
+
+    formatPreparationRemaining(order) {
+      const remaining = this.preparationRemaining(order)
+      if (remaining === null) return 'لم يبدأ'
+      const totalSeconds = Math.abs(remaining)
+      const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0')
+      const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0')
+      const seconds = String(totalSeconds % 60).padStart(2, '0')
+      return (remaining < 0 ? 'تأخير ' : 'متبقي ') + hours + ':' + minutes + ':' + seconds
+    },
+
+    checkDelayedOrders() {
+      if (!this.adminLoggedIn || !this.adminOpen) return
+      for (const order of this.orders) {
+        if (order.status !== 'قيد التجهيز' || this.preparationRemaining(order) === null) continue
+        if (this.preparationRemaining(order) <= 0 && !this.delayedNotifiedOrders.includes(order.dbId)) {
+          this.delayedNotifiedOrders.push(order.dbId)
+          this.showToast('تنبيه تأخير: الطلب #' + order.id + ' تجاوز وقت التجهيز المحدد.')
+          if (typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'granted') {
+            new window.Notification('طلب سومر متأخر', {
+              body: 'الطلب #' + order.id + ' تجاوز وقت التجهيز المحدد.'
+            })
+          }
+        }
+      }
+    },
+
     async updateOrderStatus(dbId, status) {
       if (!this.adminLoggedIn) return
 
@@ -1368,6 +1430,7 @@ export default {
         const order = this.orders.find(row => row.dbId === dbId)
         if (order) order.status = status
         this.showToast('تم تحديث حالة الطلب في قاعدة البيانات.')
+        await this.loadOrders()
       } catch (error) {
         console.error('SUMER order status error:', error)
         this.adminError = 'تعذر تعديل حالة الطلب. تحقق من صلاحيات تحديث جدول orders.'
@@ -3727,4 +3790,31 @@ textarea {
     flex-direction: column;
   }
 }
+.preparation-timer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(213, 174, 105, 0.45);
+  border-radius: 10px;
+  background: rgba(213, 174, 105, 0.08);
+  color: var(--text, #f7f0e8);
+  font-variant-numeric: tabular-nums;
+}
+.preparation-timer span {
+  direction: ltr;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.preparation-timer.overdue {
+  border-color: #e05252;
+  background: rgba(224, 82, 82, 0.12);
+  color: #ff7777;
+}
+.preparation-timer b {
+  font-weight: 800;
+}
+
 </style>
