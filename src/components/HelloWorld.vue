@@ -155,6 +155,7 @@
     </div>
 
     <div class="footer-links">
+      <a v-if="menuQrTarget" class="footer-menu-link" :href="menuQrTarget" target="_blank" rel="noopener">افتح المنيو</a>
       <a v-for="link in visibleSocialLinks" :key="link.id" :href="link.url" target="_blank" rel="noopener">{{ link.label }}</a>
       <a v-if="settings.whatsapp" :href="whatsappUrl" target="_blank" rel="noopener">واتساب</a>
       <div v-if="settings.menuQrEnabled && menuQrUrl" class="footer-menu-qr">
@@ -615,8 +616,8 @@
               <label>رابط الموقع المنشور
                 <input v-model.trim="settings.publicUrl" type="url" placeholder="https://..." />
               </label>
-              <label>رابط المنيو المباشر
-                <input v-model.trim="settings.menuUrl" type="url" placeholder="https://.../#menu" />
+              <label>رابط المنيو المختصر (يظهر للزوار)
+                <input v-model.trim="settings.menuUrl" type="url" placeholder="https://.../somer-restaurant/m/" />
               </label>
             </div>
 
@@ -3193,6 +3194,23 @@ textarea {
   align-items: center;
   gap: 13px;
   font-size: 12px;
+}
+
+.footer-menu-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 13px;
+  border: 1px solid rgba(213, 174, 105, 0.6);
+  border-radius: 20px;
+  color: var(--accent, #d5ae69);
+  font-weight: 800;
+  transition: background 0.2s, color 0.2s;
+}
+
+.footer-menu-link:hover {
+  color: #171313;
+  background: var(--accent, #d5ae69);
 }
 
 .footer > small {
