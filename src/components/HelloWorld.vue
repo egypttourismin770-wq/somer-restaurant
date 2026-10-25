@@ -860,7 +860,8 @@ export default {
       const explicitTarget = String(this.settings.menuUrl || '').trim()
       const publicUrl = String(this.settings.publicUrl || '').trim()
       const normalizedPublicUrl = publicUrl.endsWith('/') ? publicUrl.slice(0, -1) : publicUrl
-      const target = explicitTarget || (normalizedPublicUrl ? normalizedPublicUrl + '/#menu' : '')
+      const currentPageUrl = typeof window !== 'undefined' ? window.location.href.split('#')[0] : ''
+      const target = explicitTarget || (normalizedPublicUrl ? normalizedPublicUrl + '/#menu' : (currentPageUrl ? currentPageUrl + '#menu' : ''))
       return this.isValidUrl(target) ? target : ''
     },
 
