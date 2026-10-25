@@ -1,0 +1,34 @@
+name: Create one-time short menu link
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/shorten-menu-link.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  shorten:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create and test TinyURL
+        shell: bash
+        run: |
+          set -euo pipefail
+          long_url='https://egypttourismin770-wq.github.io/somer-restaurant/#menu'
+          short_url="$(curl --fail --silent --show-error --retry 2 --retry-delay 2 --max-time 30 --get --data-urlencode "url=${long_url}" https://tinyurl.com/api-create.php)"
+          if [[ ! "${short_url}" =~ ^https://tinyurl\.com/ ]]; then
+            echo "Unexpected TinyURL response: ${short_url}"
+            exit 1
+          fi
+          echo "SHORT_MENU_URL=${short_url}"
+          printf '## Somer menu short link\n\n%s\n' "${short_url}" >> "${GITHUB_STEP_SUMMARY}"
+          status="$(curl --location --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 30 "${short_url}")"
+          echo "Redirect final HTTP status: ${status}"
+          if [[ "${status}" != "200" ]]; then
+            echo "Short link did not resolve to an HTTP 200 response."
+            exit 1
+          fi
