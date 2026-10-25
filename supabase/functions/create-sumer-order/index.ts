@@ -13,7 +13,91 @@ const json = (body: unknown, status = 200) =>
   });
 
 
+
+async function parseWhatsAppProviderResponse(response: Response) {
+  const raw = await response.text();
+  try { return raw ? JSON.parse(raw) : {}; }
+  catch { return { responseText: raw.slice(0, 300) }; }
+}
+
+async function recordSumerWhatsAppMessage(
+  db: any,
+  details: {
+    messageId: string | null;
+    orderId: string;
+    orderNumber: number;
+    recipient: string;
+    messageType: string;
+  },
+) {
+  if (!details.messageId) {
+    console.warn("SUMER WhatsApp accepted response had no message id", {
+      orderNumber: details.orderNumber,
+      messageType: details.messageType,
+    });
+    return;
+  }
+  try {
+    const { error } = await db.from("sumer_whatsapp_messages").insert({
+      message_id: details.messageId,
+      order_id: details.orderId,
+      order_number: details.orderNumber,
+      recipient: details.recipient,
+      message_type: details.messageType,
+      status: "accepted",
+    });
+    if (error && error.code !== "23505") {
+      console.error("SUMER WhatsApp message DB write failed", {
+        orderNumber: details.orderNumber,
+        messageType: details.messageType,
+        code: error.code ?? null,
+        message: error.message,
+      });
+      return;
+    }
+
+    // A webhook can arrive before this row is inserted. Reconcile a callback already stored.
+    const { data: events, error: eventsError } = await db
+      .from("sumer_whatsapp_delivery_events")
+      .select("status,provider_timestamp,errors")
+      .eq("message_id", details.messageId)
+      .order("provider_timestamp", { ascending: false, nullsFirst: false })
+      .limit(1);
+    if (eventsError) {
+      console.warn("SUMER WhatsApp event reconciliation lookup failed", {
+        orderNumber: details.orderNumber,
+        code: eventsError.code ?? null,
+      });
+    } else if (events?.length) {
+      const latest = events[0];
+      const { error: updateError } = await db.from("sumer_whatsapp_messages")
+        .update({
+          status: latest.status,
+          provider_timestamp: latest.provider_timestamp,
+          last_error: latest.errors,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("message_id", details.messageId);
+      if (updateError) {
+        console.warn("SUMER WhatsApp event reconciliation write failed", {
+          orderNumber: details.orderNumber,
+          code: updateError.code ?? null,
+        });
+      }
+    }
+  } catch (error) {
+    // A WhatsApp logging issue must not roll back an already accepted restaurant order.
+    console.error("SUMER WhatsApp DB logging exception", {
+      orderNumber: details.orderNumber,
+      messageType: details.messageType,
+      error: error instanceof Error ? error.message : "unknown error",
+    });
+  }
+}
+
 async function notifyWhatsAppForSumerOrder(args: {
+  db: any;
+  orderId: string;
   orderNumber: number;
   customerName: string;
   phone: string;
@@ -95,20 +179,31 @@ async function notifyWhatsAppForSumerOrder(args: {
         }),
       });
 
+      const imagePayload = await parseWhatsAppProviderResponse(imageResponse);
       if (!imageResponse.ok) {
-        const responseBody = (await imageResponse.text()).slice(0, 500);
         console.error("SUMER product photo send failed", {
           orderNumber: args.orderNumber,
           productName: item.product_name,
           status: imageResponse.status,
-          response: responseBody,
+          response: JSON.stringify(imagePayload).slice(0, 500),
         });
         imageFailures++;
       } else {
         imageCount++;
+        const messageId = imagePayload?.messages?.[0]?.id
+          ? String(imagePayload.messages[0].id)
+          : null;
+        await recordSumerWhatsAppMessage(args.db, {
+          messageId,
+          orderId: args.orderId,
+          orderNumber: args.orderNumber,
+          recipient,
+          messageType: "order_item_image",
+        });
         console.log("SUMER product photo accepted", {
           orderNumber: args.orderNumber,
           productName: item.product_name,
+          hasMessageId: Boolean(messageId),
         });
       }
     } catch (error) {
@@ -143,15 +238,26 @@ async function notifyWhatsAppForSumerOrder(args: {
           },
         }),
       });
+      const receiptPayload = await parseWhatsAppProviderResponse(receiptResponse);
       if (!receiptResponse.ok) {
         console.error("SUMER payment receipt WhatsApp send failed", {
           orderNumber: args.orderNumber,
           status: receiptResponse.status,
-          response: (await receiptResponse.text()).slice(0, 400),
+          response: JSON.stringify(receiptPayload).slice(0, 400),
         });
         imageFailures++;
       } else {
         imageCount++;
+        const messageId = receiptPayload?.messages?.[0]?.id
+          ? String(receiptPayload.messages[0].id)
+          : null;
+        await recordSumerWhatsAppMessage(args.db, {
+          messageId,
+          orderId: args.orderId,
+          orderNumber: args.orderNumber,
+          recipient,
+          messageType: "payment_receipt",
+        });
       }
     } catch (error) {
       console.error("SUMER payment receipt WhatsApp request failed", {
@@ -221,15 +327,25 @@ async function notifyWhatsAppForSumerOrder(args: {
       }),
     });
 
+    const summaryPayload = await parseWhatsAppProviderResponse(response);
     if (!response.ok) {
-      const responseBody = (await response.text()).slice(0, 500);
       console.error("SUMER WhatsApp order summary failed", {
         status: response.status,
-        response: responseBody,
+        response: JSON.stringify(summaryPayload).slice(0, 500),
         orderNumber: args.orderNumber,
       });
       return "images_sent_summary_failed";
     }
+    const summaryMessageId = summaryPayload?.messages?.[0]?.id
+      ? String(summaryPayload.messages[0].id)
+      : null;
+    await recordSumerWhatsAppMessage(args.db, {
+      messageId: summaryMessageId,
+      orderId: args.orderId,
+      orderNumber: args.orderNumber,
+      recipient,
+      messageType: "order_summary",
+    });
   } catch (error) {
     console.error("SUMER WhatsApp order summary request failed", {
       orderNumber: args.orderNumber,
@@ -460,6 +576,8 @@ Deno.serve(async (req: Request) => {
         : "";
 
     const whatsappNotification = await notifyWhatsAppForSumerOrder({
+      db,
+      orderId: String(order.id),
       orderNumber: Number(order.order_number),
       customerName: name,
       phone,
