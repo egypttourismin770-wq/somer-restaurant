@@ -157,6 +157,12 @@
     <div class="footer-links">
       <a v-for="link in visibleSocialLinks" :key="link.id" :href="link.url" target="_blank" rel="noopener">{{ link.label }}</a>
       <a v-if="settings.whatsapp" :href="whatsappUrl" target="_blank" rel="noopener">واتساب</a>
+      <div v-if="settings.menuQrEnabled && menuQrUrl" class="footer-menu-qr">
+        <a :href="menuQrTarget" target="_blank" rel="noopener" aria-label="فتح المنيو عبر QR Code">
+          <img :src="menuQrUrl" alt="QR Code للمنيو" />
+        </a>
+        <small>امسح الكود لفتح المنيو</small>
+      </div>
     </div>
 
     <small>© {{ new Date().getFullYear() }} {{ settings.name || 'سومر' }} — نسخة تجريبية</small>
@@ -311,10 +317,10 @@
         <p>استخدم حساب الإدارة الذي أنشأته في Supabase Auth.</p>
         <form @submit.prevent="login">
           <label>البريد الإلكتروني
-            <input v-model.trim="adminEmail" type="email" autocomplete="username" placeholder="admin@example.com" required />
+            <input v-model.trim="adminEmail" type="email" autocomplete="off" name="sumer-admin-email" placeholder="admin@example.com" required />
           </label>
           <label>كلمة المرور
-            <input v-model="adminPassword" type="password" autocomplete="current-password" placeholder="كلمة المرور" required />
+            <input v-model="adminPassword" type="password" autocomplete="new-password" name="sumer-admin-password" placeholder="كلمة المرور" required />
           </label>
           <p v-if="loginError" class="error-message">{{ loginError }}</p>
           <button class="primary-button full-button" type="submit" :disabled="adminBusy">
@@ -537,6 +543,9 @@
               <label>رابط الموقع المنشور
                 <input v-model.trim="settings.publicUrl" type="url" placeholder="https://..." />
               </label>
+              <label>رابط المنيو المباشر
+                <input v-model.trim="settings.menuUrl" type="url" placeholder="https://.../#menu" />
+              </label>
             </div>
 
             <label>الوصف المختصر
@@ -550,6 +559,9 @@
               <label>اللون الذهبي <input v-model="settings.accentColor" type="color" /></label>
               <label>لون النص <input v-model="settings.textColor" type="color" /></label>
             </div>
+
+            <label class="checkbox-label"><input v-model="settings.menuQrEnabled" type="checkbox" /> إظهار QR Code صغير للمنيو أسفل رابط واتساب في الفوتر</label>
+            <p class="hint">الرابط الافتراضي يفتح قسم المنيو في الموقع المنشور. يمكنك تغييره من هنا ثم حفظ البيانات.</p>
 
             <h4>روابط التواصل الاجتماعي</h4>
             <div v-for="link in socialLinks" :key="link.id" class="social-edit-row">
@@ -678,7 +690,9 @@ function defaultSettings() {
     whatsapp: '',
     vodafoneWallet: '',
     instapayAddress: '',
-    publicUrl: '',
+    publicUrl: 'https://somer-restaurant.egypttourismin770.workers.dev',
+    menuUrl: 'https://somer-restaurant.egypttourismin770.workers.dev/#menu',
+    menuQrEnabled: false,
     slideSeconds: 6,
     bgColor: '#171313',
     cardColor: '#241d1b',
@@ -842,6 +856,18 @@ export default {
         encodeURIComponent(this.settings.publicUrl || '')
     },
 
+    menuQrTarget() {
+      const target = String(this.settings.menuUrl || '').trim()
+      return this.isValidUrl(target) ? target : ''
+    },
+
+    menuQrUrl() {
+      const target = this.menuQrTarget
+      if (!target) return ''
+      return 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' +
+        encodeURIComponent(target)
+    },
+
     sortedOrders() {
       return [...this.orders].sort((a, b) => Number(b.createdAtTimestamp || 0) - Number(a.createdAtTimestamp || 0))
     }
@@ -973,7 +999,7 @@ export default {
         const localSettings = data?.settings || {}
 
         // هذه القيم ليست موجودة في جدول restaurant_settings الحالي.
-        for (const key of ['tagline', 'publicUrl', 'slideSeconds', 'bgColor', 'cardColor', 'accentColor', 'textColor']) {
+        for (const key of ['tagline', 'publicUrl', 'menuUrl', 'menuQrEnabled', 'slideSeconds', 'bgColor', 'cardColor', 'accentColor', 'textColor']) {
           if (localSettings[key] !== undefined) this.settings[key] = localSettings[key]
         }
 
@@ -1000,6 +1026,8 @@ export default {
         const localSettings = {
           tagline: this.settings.tagline,
           publicUrl: this.settings.publicUrl,
+          menuUrl: this.settings.menuUrl,
+          menuQrEnabled: this.settings.menuQrEnabled,
           slideSeconds: this.settings.slideSeconds,
           bgColor: this.settings.bgColor,
           cardColor: this.settings.cardColor,
@@ -2221,6 +2249,10 @@ export default {
 </script>
 
 <style>
+.footer-menu-qr { display: flex; flex-direction: column; align-items: center; gap: 5px; margin-top: 8px; }
+.footer-menu-qr img { display: block; width: 72px; height: 72px; padding: 4px; border-radius: 8px; background: #fff; object-fit: contain; }
+.footer-menu-qr small { font-size: 0.72rem; opacity: 0.85; text-align: center; }
+
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
 
 :root {
