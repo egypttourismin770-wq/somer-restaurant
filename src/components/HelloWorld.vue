@@ -806,6 +806,8 @@ export default {
       timerNow: Date.now(),
       timerInterval: null,
       delayedNotifiedOrders: [],
+      lastWhatsAppStatusRefreshAt: 0,
+      whatsappStatusRefreshing: false,
       toast: '',
       toastTimer: null,
 
@@ -947,6 +949,17 @@ export default {
     this.timerInterval = setInterval(() => {
       this.timerNow = Date.now()
       this.checkDelayedOrders()
+
+      // Refresh WhatsApp delivery receipts while the admin order board is open.
+      if (
+        this.adminLoggedIn &&
+        this.adminOpen &&
+        this.adminTab === 'orders' &&
+        this.timerNow - this.lastWhatsAppStatusRefreshAt >= 10000
+      ) {
+        this.lastWhatsAppStatusRefreshAt = this.timerNow
+        this.refreshWhatsAppStatuses()
+      }
     }, 1000)
   },
 
@@ -1491,6 +1504,44 @@ export default {
       const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0')
       const seconds = String(totalSeconds % 60).padStart(2, '0')
       return (remaining < 0 ? 'تأخير ' : 'متبقي ') + hours + ':' + minutes + ':' + seconds
+    },
+
+    async refreshWhatsAppStatuses() {
+      if (!this.adminLoggedIn || !this.adminOpen || this.whatsappStatusRefreshing) return
+      const orderIds = this.orders.map(order => order.dbId)
+      if (!orderIds.length) return
+
+      this.whatsappStatusRefreshing = true
+      try {
+        const { data, error } = await supabase
+          .from('sumer_whatsapp_messages')
+          .select('message_id, order_id, message_type, status, provider_timestamp, last_error, created_at')
+          .in('order_id', orderIds)
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+        const messagesByOrder = new Map()
+        for (const row of (data || [])) {
+          const current = messagesByOrder.get(row.order_id) || []
+          current.push({
+            messageId: row.message_id,
+            messageType: row.message_type || 'other',
+            status: row.status || 'unknown',
+            providerTimestamp: row.provider_timestamp || '',
+            lastError: row.last_error || null,
+            createdAt: row.created_at || ''
+          })
+          messagesByOrder.set(row.order_id, current)
+        }
+        this.orders = this.orders.map(order => ({
+          ...order,
+          whatsappMessages: messagesByOrder.get(order.dbId) || []
+        }))
+      } catch (error) {
+        console.warn('SUMER WhatsApp status refresh failed:', error)
+      } finally {
+        this.whatsappStatusRefreshing = false
+      }
     },
 
     async checkDelayedOrders() {
