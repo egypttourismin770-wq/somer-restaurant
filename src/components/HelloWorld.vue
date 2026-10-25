@@ -1399,12 +1399,29 @@ export default {
       return (remaining < 0 ? 'تأخير ' : 'متبقي ') + hours + ':' + minutes + ':' + seconds
     },
 
-    checkDelayedOrders() {
+    async checkDelayedOrders() {
       if (!this.adminLoggedIn || !this.adminOpen) return
       for (const order of this.orders) {
         if (order.status !== 'قيد التجهيز' || this.preparationRemaining(order) === null) continue
-        if (this.preparationRemaining(order) <= 0 && !this.delayedNotifiedOrders.includes(order.dbId)) {
+        if (
+          this.preparationRemaining(order) <= 0 &&
+          !order.delayNotifiedAt &&
+          !this.delayedNotifiedOrders.includes(order.dbId)
+        ) {
+          // Prevent repeated alerts after refreshing the admin panel.
           this.delayedNotifiedOrders.push(order.dbId)
+          const notifiedAt = new Date().toISOString()
+          const { error } = await supabase
+            .from('orders')
+            .update({ delay_notified_at: notifiedAt })
+            .eq('id', order.dbId)
+
+          if (error) {
+            console.warn('Could not persist SUMER delay notification state:', error)
+          } else {
+            order.delayNotifiedAt = notifiedAt
+          }
+
           this.showToast('تنبيه تأخير: الطلب #' + order.id + ' تجاوز وقت التجهيز المحدد.')
           if (typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'granted') {
             new window.Notification('طلب سومر متأخر', {
