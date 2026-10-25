@@ -158,12 +158,6 @@
       <a v-if="menuQrTarget" class="footer-menu-link" :href="menuQrTarget" target="_blank" rel="noopener">افتح المنيو</a>
       <a v-for="link in visibleSocialLinks" :key="link.id" :href="link.url" target="_blank" rel="noopener">{{ link.label }}</a>
       <a v-if="settings.whatsapp" :href="whatsappUrl" target="_blank" rel="noopener">واتساب</a>
-      <div v-if="settings.menuQrEnabled && menuQrUrl" class="footer-menu-qr">
-        <a :href="menuQrTarget" target="_blank" rel="noopener" aria-label="فتح المنيو عبر QR Code">
-          <img :src="menuQrUrl" alt="QR Code للمنيو" />
-        </a>
-        <small>امسح الكود لفتح المنيو</small>
-      </div>
     </div>
 
     <small>© {{ new Date().getFullYear() }} {{ settings.name || 'سومر' }} — نسخة تجريبية</small>
@@ -307,7 +301,8 @@
       <p v-else-if="confirmedOrder.whatsappNotification && confirmedOrder.whatsappNotification.startsWith('summary_sent')" class="hint">
         تم قبول ملخص الطلب للإرسال عبر واتساب. حالة الصور: {{ confirmedOrder.whatsappNotification.includes('images_sent') ? 'تم قبول إرسال الصور' : 'لم يتم تأكيد إرسال صور الأصناف' }}.
       </p>
-      <button class="primary-button full-button" @click="confirmedOrder = null">تمام</button>
+      <button class="primary-button full-button" @click="openTrackingFromConfirmation">متابعة الأوردر</button>
+      <button class="secondary-button full-button" @click="confirmedOrder = null">تمام</button>
     </section>
   </div>
 
@@ -633,8 +628,7 @@
               <label>لون النص <input v-model="settings.textColor" type="color" /></label>
             </div>
 
-            <label class="checkbox-label"><input v-model="settings.menuQrEnabled" type="checkbox" /> إظهار QR Code صغير للمنيو أسفل رابط واتساب في الفوتر</label>
-            <p class="hint">الرابط الافتراضي يفتح قسم المنيو في الموقع المنشور. يمكنك تغييره من هنا ثم حفظ البيانات.</p>
+            <p class="hint">رابط المنيو المختصر يُستخدم في زر «افتح المنيو» أسفل الموقع. رمز QR مخصص للطباعة والاستخدام خارج الموقع ولن يظهر داخل واجهة الموقع أو لوحة الإدارة.</p>
 
             <h4>روابط التواصل الاجتماعي</h4>
             <div v-for="link in socialLinks" :key="link.id" class="social-edit-row">
@@ -665,16 +659,6 @@
             <button class="secondary-button" @click="copyRestaurantData">نسخ بيانات المطعم</button>
           </div>
 
-          <h3 class="qr-heading">QR Code للموقع</h3>
-          <p class="hint">أدخل رابط الموقع بعد نشره. الرمز يفتح الرابط الذي أدخلته.</p>
-          <div v-if="settings.publicUrl" class="qr-box">
-            <img :src="qrUrl" alt="QR Code للموقع" />
-            <p>{{ settings.publicUrl }}</p>
-            <a class="secondary-button link-button" :href="qrUrl" target="_blank" rel="noopener">فتح صورة QR</a>
-          </div>
-          <div v-else class="empty-state">أضف رابط الموقع المنشور في إعدادات المطعم لإنشاء QR.</div>
-
-          <p class="hint">توليد QR هنا يعتمد على خدمة خارجية، ويُرسل لها رابط الموقع لإنشاء الرمز.</p>
           <button class="danger-button" @click="resetDemo">إعادة ضبط إعدادات العرض المحلية</button>
           <p class="hint">هذا الزر يعيد إعدادات العرض المحلية فقط، ولا يحذف المنتجات أو الطلبات من قاعدة البيانات.</p>
         </div>
@@ -734,6 +718,83 @@
           <button class="danger-button" @click="logout">تسجيل خروج</button>
         </div>
       </template>
+    </section>
+  </div>
+
+  <!-- متابعة طلب العميل -->
+  <button v-if="!adminOpen" class="customer-tracking-fab" type="button" @click="openTracking()">◷ متابعة طلبك</button>
+
+  <div v-if="trackingModalOpen" class="overlay tracking-overlay" @click.self="closeTracking">
+    <section class="modal tracking-modal" role="dialog" aria-modal="true" aria-label="متابعة طلبك">
+      <div class="drawer-heading">
+        <div>
+          <span class="eyebrow">SUMER ORDER TRACKING</span>
+          <h2>متابعة طلبك</h2>
+        </div>
+        <button class="close-button" type="button" aria-label="إغلاق" @click="closeTracking">✕</button>
+      </div>
+      <p class="hint">اكتب رقم الأوردر ورقم الموبايل اللي سجلت بيه الطلب علشان تشوف حالته والوقت المتوقع للتجهيز.</p>
+
+      <form class="tracking-form" @submit.prevent="lookupOrderTracking">
+        <label>رقم الأوردر *
+          <input v-model.trim="trackingForm.orderNumber" inputmode="numeric" autocomplete="off" required maxlength="18" placeholder="رقم الطلب الموجود في رسالة التأكيد" />
+        </label>
+        <label>رقم موبايل العميل *
+          <input v-model.trim="trackingForm.phone" type="tel" autocomplete="tel" required maxlength="25" placeholder="نفس الرقم المستخدم وقت الطلب" />
+        </label>
+        <p v-if="trackingError" class="error-message tracking-error" role="alert">{{ trackingError }}</p>
+        <button class="primary-button full-button" type="submit" :disabled="trackingLoading">
+          {{ trackingLoading ? 'جاري جلب حالة الطلب...' : 'عرض حالة الطلب' }}
+        </button>
+      </form>
+
+      <section v-if="trackingOrder" class="tracking-result" aria-live="polite">
+        <div class="admin-title-row">
+          <h3>الأوردر #{{ trackingOrder.orderNumber }}</h3>
+          <span class="status-pill">{{ trackingStatusLabel }}</span>
+        </div>
+        <p class="tracking-status-message">{{ trackingStatusMessage }}</p>
+
+        <div
+          v-if="!['out_for_delivery', 'delivered', 'cancelled'].includes(trackingOrder.status)"
+          class="tracking-countdown"
+          :class="{ overdue: trackingSecondsRemaining !== null && trackingSecondsRemaining <= 0 }"
+        >
+          <span>الوقت المتوقع للتجهيز</span>
+          <strong>{{ trackingTimeLabel }}</strong>
+          <small>العداد بيتحدّث تلقائيًا، وحالة الطلب بتتراجع كل 15 ثانية.</small>
+        </div>
+
+        <ol v-if="trackingOrder.status !== 'cancelled'" class="tracking-steps">
+          <li :class="{ active: trackingStage === 0, complete: trackingStage > 0 }">
+            <span>1</span><div><strong>وصل للمطعم</strong><small>تم تسجيل الأوردر</small></div>
+          </li>
+          <li :class="{ active: trackingStage === 1, complete: trackingStage > 1 }">
+            <span>2</span><div><strong>قيد التجهيز</strong><small>المطعم بيحضّر طلبك</small></div>
+          </li>
+          <li :class="{ active: trackingStage === 2, complete: trackingStage > 2 }">
+            <span>3</span><div><strong>خرج للتوصيل</strong><small>الأوردر في الطريق</small></div>
+          </li>
+          <li :class="{ active: trackingStage === 3, complete: trackingStage > 3 }">
+            <span>4</span><div><strong>تم التسليم</strong><small>بالهنا والشفا</small></div>
+          </li>
+        </ol>
+
+        <div class="tracking-items">
+          <h4>أصناف طلبك</h4>
+          <div v-for="(item, index) in trackingOrder.items" :key="item.id || (item.name + '-' + index)" class="tracking-item-row">
+            <span>{{ item.name }}</span><strong>× {{ item.quantity }}</strong>
+          </div>
+          <p v-if="!trackingOrder.items.length" class="hint">تفاصيل الأصناف غير متاحة لهذا الطلب.</p>
+        </div>
+
+        <div class="tracking-actions">
+          <small>آخر تحديث: {{ trackingOrder.updatedAt ? new Date(trackingOrder.updatedAt).toLocaleTimeString('ar-EG') : 'تم التحديث الآن' }}</small>
+          <button class="secondary-button" type="button" @click="refreshOrderTracking(false)" :disabled="trackingLoading">
+            {{ trackingLoading ? 'جاري التحديث...' : 'تحديث الحالة' }}
+          </button>
+        </div>
+      </section>
     </section>
   </div>
 
@@ -805,6 +866,13 @@ export default {
       cartOpen: false,
       checkoutOpen: false,
       confirmedOrder: null,
+      trackingModalOpen: false,
+      trackingForm: { orderNumber: '', phone: '' },
+      trackingOrder: null,
+      trackingLoading: false,
+      trackingError: '',
+      trackingLastRefreshAt: 0,
+      lastOrderPhone: '',
       checkout: this.emptyCheckout(),
       proofFileName: '',
       paymentProofFile: null,
@@ -850,7 +918,7 @@ export default {
         { id: 'slides', label: 'الصور' },
         { id: 'delivery', label: 'التوصيل' },
         { id: 'settings', label: 'الإعدادات' },
-        { id: 'data', label: 'بطاقة البيانات وQR' },
+        { id: 'data', label: 'بطاقة بيانات المطعم' },
         { id: 'whatsapp', label: 'سجل واتساب' },
         { id: 'integrations', label: 'أدوات الربط' }
       ]
@@ -946,11 +1014,60 @@ export default {
       return this.isValidUrl(target) ? target : ''
     },
 
-    menuQrUrl() {
-      const target = this.menuQrTarget
-      if (!target) return ''
-      return 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' +
-        encodeURIComponent(target)
+    trackingStatusLabel() {
+      const labels = {
+        new: 'وصل للمطعم',
+        confirmed: 'تم تأكيد الطلب',
+        preparing: 'قيد التجهيز',
+        out_for_delivery: 'خرج للتوصيل',
+        delivered: 'تم التسليم',
+        cancelled: 'تم إلغاء الطلب'
+      }
+      return labels[this.trackingOrder?.status] || 'حالة الطلب غير معروفة'
+    },
+
+    trackingStatusMessage() {
+      const messages = {
+        new: 'طلبك وصل للمطعم وجاري مراجعته وبدء التجهيز.',
+        confirmed: 'المطعم أكد استلام الطلب، وبيجهّز لبدء التحضير.',
+        preparing: 'طلبك قيد التجهيز في المطعم.',
+        out_for_delivery: 'طلبك خرج من المطعم وهو في الطريق إليك.',
+        delivered: 'تم تسليم طلبك. بالهنا والشفا!',
+        cancelled: 'تم إلغاء الطلب. تواصل مع المطعم لو محتاج تفاصيل.'
+      }
+      return messages[this.trackingOrder?.status] || 'جاري جلب حالة طلبك.'
+    },
+
+    trackingStage() {
+      const stages = {
+        new: 0,
+        confirmed: 0,
+        preparing: 1,
+        out_for_delivery: 2,
+        delivered: 3,
+        cancelled: -1
+      }
+      return this.trackingOrder ? (stages[this.trackingOrder.status] ?? 0) : -1
+    },
+
+    trackingSecondsRemaining() {
+      if (!this.trackingOrder?.preparationDeadlineAt) return null
+      if (['out_for_delivery', 'delivered', 'cancelled'].includes(this.trackingOrder.status)) return null
+      const deadline = new Date(this.trackingOrder.preparationDeadlineAt).getTime()
+      if (!Number.isFinite(deadline)) return null
+      return Math.floor((deadline - this.timerNow) / 1000)
+    },
+
+    trackingTimeLabel() {
+      if (!this.trackingOrder) return ''
+      if (!this.trackingOrder.preparationDeadlineAt) return 'وقت التجهيز غير محدد لهذا الطلب'
+      const remaining = this.trackingSecondsRemaining
+      if (remaining === null) return 'الوقت المتوقع غير متاح'
+      if (remaining <= 0) return 'الوقت المتوقع انتهى — بنحدّث حالة الطلب'
+      const hours = Math.floor(remaining / 3600)
+      const minutes = Math.floor((remaining % 3600) / 60)
+      const seconds = String(remaining % 60).padStart(2, '0')
+      return 'متبقي ' + (hours ? hours + ' ساعة ' : '') + minutes + ' دقيقة ' + seconds + ' ثانية'
     },
 
     sortedOrders() {
@@ -994,6 +1111,15 @@ export default {
         this.lastWhatsAppStatusRefreshAt = this.timerNow
         if (this.adminTab === 'orders') this.refreshWhatsAppStatuses()
         else this.loadWhatsAppMessages()
+      }
+
+      if (
+        this.trackingModalOpen &&
+        this.trackingOrder &&
+        !this.trackingLoading &&
+        this.timerNow - this.trackingLastRefreshAt >= 15000
+      ) {
+        this.refreshOrderTracking(true)
       }
     }, 1000)
   },
@@ -1263,7 +1389,7 @@ export default {
             instapayAddress: row.instapay_handle || '',
             publicUrl: row.public_url || '',
             menuUrl: row.menu_url || '',
-            menuQrEnabled: row.menu_qr_enabled === true
+            menuQrEnabled: false
           }
 
           const customLinks = this.socialLinks.filter(link =>
@@ -1896,6 +2022,11 @@ export default {
         const orderNumber = data.orderNumber || data.order_number || data.id || 'تم التأكيد'
         const confirmedTotal = Number(data.total)
 
+        this.lastOrderPhone = this.checkout.phone
+        this.trackingForm.orderNumber = String(orderNumber).replace(/^#/, '').trim()
+        this.trackingForm.phone = this.checkout.phone
+        this.trackingOrder = null
+
         this.confirmedOrder = {
           id: String(orderNumber),
           total: Number.isFinite(confirmedTotal) ? confirmedTotal : previousTotal,
@@ -1917,6 +2048,86 @@ export default {
         this.orderError = 'تعذر تسجيل الطلب. تحقق من نشر create-sumer-order ومن إعدادات قاعدة البيانات وصلاحياتها.'
       } finally {
         this.sending = false
+      }
+    },
+
+    openTracking(orderNumber = '') {
+      if (orderNumber) {
+        this.trackingForm.orderNumber = String(orderNumber).replace(/^#/, '').trim()
+        this.trackingOrder = null
+      }
+      if (!this.trackingForm.phone && this.lastOrderPhone) {
+        this.trackingForm.phone = this.lastOrderPhone
+      }
+      this.trackingError = ''
+      this.trackingModalOpen = true
+    },
+
+    openTrackingFromConfirmation() {
+      const orderNumber = this.confirmedOrder?.id || this.trackingForm.orderNumber
+      this.confirmedOrder = null
+      this.openTracking(orderNumber)
+    },
+
+    closeTracking() {
+      this.trackingModalOpen = false
+      this.trackingError = ''
+    },
+
+    async lookupOrderTracking() {
+      if (this.trackingLoading) return
+      const orderNumber = String(this.trackingForm.orderNumber || '').trim()
+      const phone = String(this.trackingForm.phone || '').trim()
+      if (!/^\d{1,18}$/.test(orderNumber) || !phone) {
+        this.trackingOrder = null
+        this.trackingError = 'اكتب رقم الأوردر ورقم الموبايل المسجلين وقت الطلب.'
+        return
+      }
+
+      this.trackingLoading = true
+      this.trackingError = ''
+      try {
+        const { data, error } = await supabase.functions.invoke('track-sumer-order', {
+          body: { orderNumber, phone }
+        })
+        if (error || !data?.ok || !data?.order) {
+          this.trackingOrder = null
+          this.trackingError = 'مش لاقيين طلب مطابق للبيانات دي. راجع رقم الأوردر ورقم الموبايل وجرب تاني.'
+          return
+        }
+        this.trackingOrder = data.order
+        this.trackingLastRefreshAt = Date.now()
+      } catch (error) {
+        console.error('SUMER order tracking error:', error)
+        this.trackingOrder = null
+        this.trackingError = 'حصلت مشكلة أثناء متابعة الطلب. جرّب تاني بعد لحظات.'
+      } finally {
+        this.trackingLoading = false
+      }
+    },
+
+    async refreshOrderTracking(silent = false) {
+      if (!this.trackingOrder || this.trackingLoading) return
+      this.trackingLoading = true
+      try {
+        const { data, error } = await supabase.functions.invoke('track-sumer-order', {
+          body: {
+            orderNumber: this.trackingForm.orderNumber,
+            phone: this.trackingForm.phone
+          }
+        })
+        if (error || !data?.ok || !data?.order) {
+          if (!silent) this.trackingError = 'تعذر تحديث الحالة الآن. بيانات الطلب الحالية ما زالت ظاهرة.'
+          return
+        }
+        this.trackingOrder = data.order
+        this.trackingLastRefreshAt = Date.now()
+        this.trackingError = ''
+      } catch (error) {
+        console.error('SUMER order tracking refresh error:', error)
+        if (!silent) this.trackingError = 'تعذر تحديث الحالة الآن. حاول مرة أخرى.'
+      } finally {
+        this.trackingLoading = false
       }
     },
 
@@ -2382,7 +2593,7 @@ export default {
           instapay_handle: String(this.settings.instapayAddress || '').trim(),
           public_url: String(this.settings.publicUrl || '').trim(),
           menu_url: String(this.settings.menuUrl || '').trim(),
-          menu_qr_enabled: this.settings.menuQrEnabled === true,
+          menu_qr_enabled: false,
           facebook_url: String(facebookUrl || '').trim(),
           instagram_url: String(instagramUrl || '').trim(),
           updated_at: new Date().toISOString()
@@ -2562,10 +2773,6 @@ export default {
 </script>
 
 <style>
-.footer-menu-qr { display: flex; flex-direction: column; align-items: center; gap: 5px; margin-top: 8px; }
-.footer-menu-qr img { display: block; width: 72px; height: 72px; padding: 4px; border-radius: 8px; background: #fff; object-fit: contain; }
-.footer-menu-qr small { font-size: 0.72rem; opacity: 0.85; text-align: center; }
-
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
 
 :root {
@@ -4121,4 +4328,72 @@ textarea {
   word-break: break-all;
 }
 
+
+/* Customer order tracking */
+.customer-tracking-fab {
+  position: fixed; z-index: 12; right: 22px;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 11px 18px;
+  border: 1px solid rgba(213, 174, 105, 0.7); border-radius: 28px;
+  color: #171313; background: var(--accent, #d5ae69);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  font-weight: 900; font-size: 13px;
+}
+.tracking-overlay {
+  z-index: 35; align-items: center; justify-content: center;
+  padding: 16px; overflow-y: auto;
+}
+.tracking-modal {
+  width: min(560px, 100%); max-height: calc(100vh - 32px);
+  overflow-y: auto; margin: auto;
+  border: 1px solid rgba(213, 174, 105, 0.42); border-radius: 16px;
+  padding: 22px; background: var(--bg, #171313); color: var(--text, #f7f0e8);
+}
+.tracking-form { display: grid; gap: 13px; }
+.tracking-form label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+.tracking-form input {
+  min-width: 0; width: 100%; min-height: 43px;
+  border: 1px solid #594534; border-radius: 9px; padding: 9px 12px;
+  color: var(--text, #f7f0e8); background: var(--card, #241d1b);
+}
+.tracking-error { margin: 0; }
+.tracking-result { margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(213, 174, 105, 0.25); }
+.tracking-result h3 { margin: 0; }
+.tracking-status-message { margin: 8px 0 14px; line-height: 1.8; }
+.tracking-countdown {
+  display: grid; gap: 6px; padding: 16px; margin: 12px 0 18px;
+  border: 1px solid rgba(213, 174, 105, 0.55); border-radius: 12px;
+  background: rgba(213, 174, 105, 0.08); text-align: center;
+}
+.tracking-countdown > span { font-size: 12px; opacity: 0.86; }
+.tracking-countdown > strong {
+  color: var(--accent, #d5ae69); font-size: clamp(18px, 4vw, 24px);
+  font-variant-numeric: tabular-nums;
+}
+.tracking-countdown > small { opacity: 0.7; font-size: 11px; }
+.tracking-countdown.overdue { border-color: #e05252; background: rgba(224, 82, 82, 0.1); }
+.tracking-countdown.overdue > strong { color: #ff8585; }
+.tracking-steps { display: grid; gap: 0; list-style: none; margin: 15px 0 22px; padding: 0; }
+.tracking-steps li { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 7px 0; color: #95877c; }
+.tracking-steps li > span {
+  display: grid; flex: 0 0 31px; place-items: center; width: 31px; height: 31px;
+  border: 1px solid #685344; border-radius: 50%; font-weight: 800;
+}
+.tracking-steps li strong, .tracking-steps li small { display: block; }
+.tracking-steps li small { font-size: 11px; opacity: 0.75; }
+.tracking-steps li.active, .tracking-steps li.complete { color: var(--text, #f7f0e8); }
+.tracking-steps li.active > span, .tracking-steps li.complete > span {
+  border-color: var(--accent, #d5ae69); color: #171313; background: var(--accent, #d5ae69);
+}
+.tracking-items { padding: 13px; border: 1px solid rgba(213, 174, 105, 0.25); border-radius: 10px; background: var(--card, #241d1b); }
+.tracking-items h4 { margin: 0 0 10px; }
+.tracking-item-row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid rgba(213, 174, 105, 0.12); }
+.tracking-item-row:last-of-type { border-bottom: 0; }
+.tracking-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.tracking-actions small { color: #ad9c8e; font-size: 11px; }
+@media (max-width: 520px) {
+  .customer-tracking-fab { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); min-height: 44px; padding: 9px 14px; }
+  .tracking-modal { padding: 16px; }
+}
 </style>
