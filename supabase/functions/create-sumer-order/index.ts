@@ -103,6 +103,7 @@ async function notifyWhatsAppForSumerOrder(args: {
   phone: string;
   backupPhone: string;
   areaName: string;
+  deliveryMinutes: number;
   street: string;
   building: string;
   floor: string;
@@ -303,6 +304,7 @@ async function notifyWhatsAppForSumerOrder(args: {
     "",
     "إجمالي الأصناف قبل التوصيل: " + args.subtotal.toFixed(2) + " جنيه",
     "رسوم التوصيل: " + args.deliveryFee.toFixed(2) + " جنيه",
+    "الوقت المتوقع للتوصيل: " + args.deliveryMinutes + " دقيقة",
     "الإجمالي النهائي شامل التوصيل: " + args.total.toFixed(2) + " جنيه",
     "طريقة الدفع: " + paymentLabel,
     args.paymentDestination ? "بيانات التحويل: " + args.paymentDestination : "",
@@ -446,7 +448,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: area, error: areaError } = await db
       .from("delivery_areas")
-      .select("id,name,fee,active")
+      .select("id,name,fee,delivery_minutes,active")
       .eq("id", areaId)
       .eq("active", true)
       .maybeSingle();
@@ -489,10 +491,11 @@ Deno.serve(async (req: Request) => {
         order_status: "new",
         subtotal,
         delivery_fee: deliveryFee,
+        delivery_minutes: Math.min(360, Math.max(5, Number(area.delivery_minutes) || 45)),
         total,
         notes,
       })
-      .select("id,order_number,total")
+      .select("id,order_number,total,delivery_minutes")
       .single();
     if (orderError) throw orderError;
 
@@ -583,6 +586,7 @@ Deno.serve(async (req: Request) => {
       phone,
       backupPhone,
       areaName: String(area.name),
+      deliveryMinutes: Number(area.delivery_minutes) || 45,
       street,
       building,
       floor,
@@ -601,6 +605,7 @@ Deno.serve(async (req: Request) => {
       ok: true,
       orderNumber: order.order_number,
       total: order.total,
+      deliveryMinutes: Number(order.delivery_minutes) || Number(area.delivery_minutes) || 45,
       whatsappNotification,
     });
   } catch (error) {
