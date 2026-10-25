@@ -1531,7 +1531,14 @@ export default {
       this.adminUser = null
     },
 
-    closeAdmin() {
+    async closeAdmin() {
+      // Closing an authenticated admin panel must also end the Supabase session.
+      // This prevents the panel from reopening without a fresh login after an outside click.
+      if (this.adminLoggedIn) {
+        await this.logout()
+        return
+      }
+
       this.adminOpen = false
       this.loginError = ''
       this.adminError = ''
