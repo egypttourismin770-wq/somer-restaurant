@@ -297,6 +297,15 @@
       <p>رقم الطلب: <strong>{{ confirmedOrder.id }}</strong></p>
       <p>الإجمالي: <strong>{{ money(confirmedOrder.total) }}</strong></p>
       <p>الحالة: {{ confirmedOrder.status }}</p>
+      <p v-if="confirmedOrder.whatsappNotification === 'not_configured'" class="hint error-message">
+        تم حفظ الطلب، لكن إشعار واتساب لم يُرسل لأن إعدادات الاتصال غير مكتملة.
+      </p>
+      <p v-else-if="confirmedOrder.whatsappNotification && confirmedOrder.whatsappNotification.includes('failed')" class="hint error-message">
+        تم حفظ الطلب، لكن تعذّر إرسال جزء من إشعار واتساب أو صورة الإيصال. راجع سجل الوظيفة قبل إعادة المحاولة.
+      </p>
+      <p v-else-if="confirmedOrder.whatsappNotification && confirmedOrder.whatsappNotification.startsWith('summary_sent')" class="hint">
+        تم قبول ملخص الطلب للإرسال عبر واتساب. حالة الصور: {{ confirmedOrder.whatsappNotification.includes('images_sent') ? 'تم قبول إرسال الصور' : 'لم يتم تأكيد إرسال صور الأصناف' }}.
+      </p>
       <button class="primary-button full-button" @click="confirmedOrder = null">تمام</button>
     </section>
   </div>
@@ -1599,7 +1608,8 @@ export default {
           total: Number.isFinite(confirmedTotal) ? confirmedTotal : previousTotal,
           status: paymentMethod === 'cash'
             ? 'تم تسجيل الطلب في قاعدة البيانات'
-            : 'تم تسجيل الطلب — الدفع قيد مراجعة الإدارة'
+            : 'تم تسجيل الطلب — الدفع قيد مراجعة الإدارة',
+          whatsappNotification: String(data.whatsappNotification || '')
         }
 
         this.cart = []
