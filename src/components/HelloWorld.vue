@@ -1558,7 +1558,9 @@ export default {
         this.confirmedOrder = {
           id: String(orderNumber),
           total: Number.isFinite(confirmedTotal) ? confirmedTotal : previousTotal,
-          status: 'تم تسجيل الطلب في قاعدة البيانات'
+          status: paymentMethod === 'cash'
+            ? 'تم تسجيل الطلب في قاعدة البيانات'
+            : 'تم تسجيل الطلب — الدفع قيد مراجعة الإدارة'
         }
 
         this.cart = []
