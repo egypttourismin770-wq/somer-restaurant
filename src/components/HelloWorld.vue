@@ -858,7 +858,9 @@ export default {
 
     menuQrTarget() {
       const explicitTarget = String(this.settings.menuUrl || '').trim()
-      const target = explicitTarget || (this.settings.publicUrl ? String(this.settings.publicUrl).trim().replace(/\\/$/, '') + '/#menu' : '')
+      const publicUrl = String(this.settings.publicUrl || '').trim()
+      const normalizedPublicUrl = publicUrl.endsWith('/') ? publicUrl.slice(0, -1) : publicUrl
+      const target = explicitTarget || (normalizedPublicUrl ? normalizedPublicUrl + '/#menu' : '')
       return this.isValidUrl(target) ? target : ''
     },
 
