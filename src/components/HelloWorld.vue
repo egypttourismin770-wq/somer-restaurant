@@ -205,83 +205,139 @@
       </div>
 
       <form @submit.prevent="submitOrder">
-        <div class="form-grid">
-          <label>الاسم بالكامل *
-            <input v-model.trim="checkout.name" required maxlength="100" placeholder="اسم العميل" />
-          </label>
-          <label>رقم الهاتف الأساسي *
-            <input v-model.trim="checkout.phone" required type="tel" maxlength="25" placeholder="01xxxxxxxxx" />
-          </label>
-          <label>رقم هاتف بديل
-            <input v-model.trim="checkout.phone2" type="tel" maxlength="25" placeholder="اختياري" />
-          </label>
-          <label>المنطقة *
-            <select v-model="checkout.areaId" required>
-              <option disabled value="">اختار المنطقة</option>
-              <option v-for="area in activeAreas" :key="area.id" :value="area.id">
-                {{ area.name }} — {{ money(area.fee) }}
-              </option>
-            </select>
-          </label>
-          <label>اسم الشارع أو المبنى *
-            <input v-model.trim="checkout.street" required maxlength="150" placeholder="اسم الشارع / المبنى" />
-          </label>
-          <label>الدور
-            <input v-model.trim="checkout.floor" maxlength="20" placeholder="رقم الدور" />
-          </label>
-          <label>رقم الشقة
-            <input v-model.trim="checkout.apartment" maxlength="20" placeholder="رقم الشقة" />
-          </label>
-          <label>طريقة الدفع *
-            <select v-model="checkout.paymentMethod" required>
-              <option v-if="settings.cashOnDeliveryEnabled !== false" value="cash">الدفع عند الاستلام</option>
-              <option value="vodafone">فودافون كاش</option>
-              <option value="instapay">إنستاباي</option>
-            </select>
-          </label>
-        </div>
-
-        <div v-if="checkout.paymentMethod !== 'cash'" class="payment-details">
-          <strong>بيانات الدفع</strong>
-          <p v-if="checkout.paymentMethod === 'vodafone'">
-            حوّل المبلغ على محفظة فودافون كاش: {{ settings.vodafoneWallet || 'لم يضف المطعم رقم المحفظة بعد' }}
-          </p>
-          <p v-else>
-            بيانات التحويل عبر إنستاباي: {{ settings.instapayAddress || 'لم يضف المطعم بيانات إنستاباي بعد' }}
-          </p>
-          <label class="upload-label">
-            صورة إيصال التحويل * (مطلوبة)
-            <input id="payment-proof-upload" class="payment-proof-input" type="file" accept="image/*" required @change="handleProofUpload" />
-            <small class="hint">اختار صورة الإيصال من معرض الصور. بعد تأكيد الطلب هتتربط برقم الأوردر وتتبعت للمطعم على واتساب.</small>
-          </label>
-          <p v-if="proofFileName" class="hint">تم اختيار الصورة: {{ proofFileName }}</p>
-          <img v-if="paymentProofPreviewUrl" class="payment-proof-selection-preview" :src="paymentProofPreviewUrl" alt="معاينة إيصال التحويل المختار" />
-          <label class="upload-label">رقم مرجع التحويل / رقم العملية (لو ظاهر في الإيصال)
-            <input v-model.trim="checkout.paymentReference" maxlength="120" placeholder="اكتب رقم مرجع التحويل الظاهر في الإيصال" />
-          </label>
-          <p class="hint">سيظل الدفع «مراجعة مطلوبة» لحد ما الإدارة تراجع الإيصال وتؤكد استلام المبلغ.</p>
-        </div>
-
-        <label>ملاحظات إضافية
-          <textarea v-model.trim="checkout.notes" rows="2" maxlength="500" placeholder="أي تفاصيل تساعد في توصيل الطلب"></textarea>
-        </label>
-
-        <div class="invoice">
-          <h3>ملخص الفاتورة</h3>
-          <div v-for="item in cart" :key="item.id">
-            <span>{{ item.name }} × {{ item.quantity }}</span>
-            <strong>{{ money(item.price * item.quantity) }}</strong>
+        <div v-if="checkoutStep === 1" class="checkout-step">
+          <div class="checkout-step-heading">
+            <span class="eyebrow">الخطوة 1 من 2</span>
+            <strong>بيانات العميل والتوصيل</strong>
           </div>
-          <div><span>المنتجات</span><strong>{{ money(cartSubtotal) }}</strong></div>
-          <div><span>التوصيل</span><strong>{{ money(selectedDeliveryFee) }}</strong></div>
-          <div class="total-row"><span>الإجمالي النهائي</span><strong>{{ money(cartTotal) }}</strong></div>
+
+          <div class="form-grid">
+            <label>الاسم بالكامل *
+              <input v-model.trim="checkout.name" required maxlength="100" placeholder="اسم العميل" />
+            </label>
+            <label>رقم الهاتف الأساسي *
+              <input v-model.trim="checkout.phone" required type="tel" maxlength="25" placeholder="01xxxxxxxxx" />
+            </label>
+            <label>رقم هاتف بديل
+              <input v-model.trim="checkout.phone2" type="tel" maxlength="25" placeholder="اختياري" />
+            </label>
+            <label>المنطقة *
+              <select v-model="checkout.areaId" required>
+                <option disabled value="">اختار المنطقة</option>
+                <option v-for="area in activeAreas" :key="area.id" :value="area.id">
+                  {{ area.name }}
+                </option>
+              </select>
+            </label>
+            <label>اسم الشارع *
+              <input v-model.trim="checkout.street" required maxlength="150" placeholder="اسم الشارع" />
+            </label>
+            <label>رقم المبنى / العمارة
+              <input v-model.trim="checkout.building" maxlength="80" placeholder="رقم المبنى أو العمارة" />
+            </label>
+            <label>الدور
+              <input v-model.trim="checkout.floor" maxlength="20" placeholder="رقم الدور" />
+            </label>
+            <label>رقم الشقة
+              <input v-model.trim="checkout.apartment" maxlength="20" placeholder="رقم الشقة" />
+            </label>
+          </div>
+
+          <div v-if="selectedArea" class="delivery-summary-grid">
+            <div class="delivery-summary-tile">
+              <span>المنطقة</span>
+              <strong>{{ selectedArea.name }}</strong>
+            </div>
+            <div class="delivery-summary-tile">
+              <span>الوقت المتوقع للتوصيل</span>
+              <strong>{{ formatDeliveryMinutes(selectedDeliveryMinutes) }}</strong>
+            </div>
+            <div class="delivery-summary-tile">
+              <span>رسوم التوصيل</span>
+              <strong>{{ money(selectedDeliveryFee) }}</strong>
+            </div>
+          </div>
+          <p v-else class="hint">اختار المنطقة علشان يظهر سعر التوصيل والوقت المتوقع قبل تأكيد الطلب.</p>
+
+          <p v-if="orderError" class="hint error-message">{{ orderError }}</p>
+          <button class="primary-button full-button" type="button" @click="continueToPayment">
+            متابعة لمراجعة الإجمالي والدفع
+          </button>
         </div>
 
-        <p v-if="orderError" class="hint error-message">{{ orderError }}</p>
-        <p class="hint">تأكيد الطلب يرسله إلى قاعدة البيانات من خلال وظيفة create-sumer-order.</p>
-        <button class="primary-button full-button" type="submit" :disabled="sending">
-          {{ sending ? 'جاري إرسال الطلب...' : 'تأكيد الطلب' }}
-        </button>
+        <div v-else class="checkout-step">
+          <div class="checkout-step-heading">
+            <span class="eyebrow">الخطوة 2 من 2</span>
+            <strong>مراجعة الفاتورة وطريقة الدفع</strong>
+            <button class="secondary-button small-button" type="button" @click="returnToCustomerDetails">تعديل بيانات التوصيل</button>
+          </div>
+
+          <div class="invoice">
+            <h3>ملخص الفاتورة</h3>
+            <div v-for="item in cart" :key="item.id">
+              <span>{{ item.name }} × {{ item.quantity }} <small>({{ money(item.price) }} للواحد)</small></span>
+              <strong>{{ money(item.price * item.quantity) }}</strong>
+            </div>
+            <div><span>قيمة الأصناف</span><strong>{{ money(cartSubtotal) }}</strong></div>
+            <div><span>منطقة التوصيل</span><strong>{{ selectedArea ? selectedArea.name : '—' }}</strong></div>
+            <div><span>وقت التوصيل المتوقع</span><strong>{{ formatDeliveryMinutes(selectedDeliveryMinutes) }}</strong></div>
+            <div><span>رسوم التوصيل</span><strong>{{ money(selectedDeliveryFee) }}</strong></div>
+            <div class="total-row"><span>الإجمالي النهائي</span><strong>{{ money(cartTotal) }}</strong></div>
+          </div>
+
+          <section class="payment-method-section">
+            <h3>اختار طريقة الدفع</h3>
+            <div class="payment-method-options">
+              <label v-if="settings.cashOnDeliveryEnabled !== false" class="payment-method-option" :class="{ selected: checkout.paymentMethod === 'cash' }">
+                <input v-model="checkout.paymentMethod" type="radio" name="paymentMethod" value="cash" required />
+                <span class="payment-method-icon">💵</span>
+                <span><strong>كاش</strong><small>الدفع عند الاستلام</small></span>
+              </label>
+              <label class="payment-method-option" :class="{ selected: checkout.paymentMethod === 'vodafone' }">
+                <input v-model="checkout.paymentMethod" type="radio" name="paymentMethod" value="vodafone" required />
+                <span class="payment-method-icon">📱</span>
+                <span><strong>فودافون كاش</strong><small>تحويل للمحفظة</small></span>
+              </label>
+              <label class="payment-method-option" :class="{ selected: checkout.paymentMethod === 'instapay' }">
+                <input v-model="checkout.paymentMethod" type="radio" name="paymentMethod" value="instapay" required />
+                <span class="payment-method-icon">🏦</span>
+                <span><strong>إنستاباي</strong><small>تحويل إلكتروني</small></span>
+              </label>
+            </div>
+          </section>
+
+          <div v-if="checkout.paymentMethod !== 'cash'" class="payment-details">
+            <strong>بيانات الدفع</strong>
+            <p v-if="checkout.paymentMethod === 'vodafone'">
+              حوّل المبلغ على محفظة فودافون كاش: <strong>{{ settings.vodafoneWallet || 'لم يضف المطعم رقم المحفظة بعد' }}</strong>
+            </p>
+            <p v-else>
+              بيانات التحويل عبر إنستاباي: <strong>{{ settings.instapayAddress || 'لم يضف المطعم بيانات إنستاباي بعد' }}</strong>
+            </p>
+            <p class="hint">راجع الإجمالي النهائي أعلاه وحوّل نفس المبلغ. بعد التحويل، ارفع صورة الإيصال.</p>
+            <label class="upload-label">
+              صورة إيصال التحويل * (مطلوبة)
+              <input id="payment-proof-upload" class="payment-proof-input" type="file" accept="image/*" required @change="handleProofUpload" />
+              <small class="hint">اختار صورة الإيصال من معرض الصور. بعد تأكيد الطلب هتتربط برقم الأوردر وتتبعت للمطعم على واتساب.</small>
+            </label>
+            <p v-if="proofFileName" class="hint">تم اختيار الصورة: {{ proofFileName }}</p>
+            <img v-if="paymentProofPreviewUrl" class="payment-proof-selection-preview" :src="paymentProofPreviewUrl" alt="معاينة إيصال التحويل المختار" />
+            <label class="upload-label">رقم مرجع التحويل / رقم العملية (لو ظاهر في الإيصال)
+              <input v-model.trim="checkout.paymentReference" maxlength="120" placeholder="اكتب رقم مرجع التحويل الظاهر في الإيصال" />
+            </label>
+            <p class="hint">حالة الدفع هتفضل «مراجعة مطلوبة» لحد ما الإدارة تراجع الإيصال وتؤكد استلام المبلغ.</p>
+          </div>
+
+          <label>ملاحظات إضافية
+            <textarea v-model.trim="checkout.notes" rows="2" maxlength="500" placeholder="أي تفاصيل تساعد في توصيل الطلب"></textarea>
+          </label>
+
+          <p v-if="orderError" class="hint error-message">{{ orderError }}</p>
+          <p class="hint">قبل تأكيد الطلب، راجع الأصناف والمنطقة ووقت التوصيل والإجمالي وطريقة الدفع.</p>
+          <button class="primary-button full-button" type="submit" :disabled="sending">
+            {{ sending ? 'جاري إرسال الطلب...' : 'تأكيد الطلب وإرسال الأوردر' }}
+          </button>
+        </div>
       </form>
     </section>
   </div>
@@ -387,6 +443,7 @@
             </div>
             <p><strong>العميل:</strong> {{ order.customer.name }} — {{ order.customer.phone }}</p>
             <p><strong>الهاتف البديل:</strong> {{ order.customer.phone2 || '—' }}</p>
+            <p><strong>وقت التوصيل المتوقع:</strong> {{ formatDeliveryMinutes(order.deliveryMinutes) }}</p>
             <p><strong>العنوان:</strong> {{ order.customer.areaName }}، {{ order.customer.street }}، الدور {{ order.customer.floor || '—' }}، شقة {{ order.customer.apartment || '—' }}</p>
             <p><strong>الدفع:</strong> {{ paymentLabel(order.paymentMethod) }} —
               <span class="status-pill" :class="{ paid: order.paymentStatusRaw === 'paid' }">{{ order.paymentStatus }}</span>
@@ -573,15 +630,21 @@
 
         <!-- مناطق التوصيل -->
         <div v-if="adminTab === 'delivery'" class="admin-content">
-          <h3>مناطق التوصيل والأسعار</h3>
+          <h3>مناطق التوصيل والوقت والسعر</h3>
+          <p class="hint">كل منطقة لها اسم مستقل، ووقت متوقع للتوصيل بالدقائق، ورسوم توصيل بالجنيه. العميل هيشوف البيانات الثلاثة قبل اختيار طريقة الدفع.</p>
           <form class="admin-form" @submit.prevent="saveArea">
             <h4>{{ areaForm.id ? 'تعديل المنطقة' : 'إضافة منطقة' }}</h4>
-            <label>اسم المنطقة *
-              <input v-model.trim="areaForm.name" required placeholder="مثال: مدينة نصر" />
-            </label>
-            <label>رسوم التوصيل بالجنيه *
-              <input v-model.number="areaForm.fee" type="number" min="0" step="0.01" required />
-            </label>
+            <div class="form-grid">
+              <label>اسم المنطقة *
+                <input v-model.trim="areaForm.name" required placeholder="مثال: مدينة نصر" />
+              </label>
+              <label>الوقت المتوقع للتوصيل (بالدقائق) *
+                <input v-model.number="areaForm.deliveryMinutes" type="number" min="5" max="360" step="5" required />
+              </label>
+              <label>رسوم التوصيل بالجنيه *
+                <input v-model.number="areaForm.fee" type="number" min="0" step="0.01" required />
+              </label>
+            </div>
             <label class="checkbox-label"><input v-model="areaForm.active" type="checkbox" /> المنطقة متاحة للتوصيل</label>
             <div class="admin-inline">
               <button class="primary-button" type="submit" :disabled="adminBusy">{{ adminBusy ? 'جاري الحفظ...' : 'حفظ المنطقة' }}</button>
@@ -592,7 +655,8 @@
           <article v-for="area in areas" :key="area.id" class="admin-list-item">
             <div class="admin-list-main">
               <strong>{{ area.name }}</strong>
-              <small>{{ money(area.fee) }} · {{ area.active ? 'متاحة' : 'متوقفة' }}</small>
+              <small>وقت التوصيل: {{ formatDeliveryMinutes(area.deliveryMinutes) }}</small>
+                <small>رسوم التوصيل: {{ money(area.fee) }} · {{ area.active ? 'متاحة' : 'متوقفة' }}</small>
             </div>
             <button class="secondary-button" @click="editArea(area)">تعديل</button>
             <button class="danger-button" @click="deleteArea(area.id)">إيقاف</button>
@@ -909,6 +973,7 @@ export default {
       cart: [],
       cartOpen: false,
       checkoutOpen: false,
+      checkoutStep: 1,
       confirmedOrder: null,
       trackingModalOpen: false,
       trackingForm: { orderNumber: '', phone: '' },
@@ -1024,6 +1089,10 @@ export default {
 
     selectedDeliveryFee() {
       return this.selectedArea ? Number(this.selectedArea.fee) || 0 : 0
+    },
+
+    selectedDeliveryMinutes() {
+      return this.selectedArea ? (Number(this.selectedArea.deliveryMinutes) || 45) : null
     },
 
     cartTotal() {
@@ -1223,7 +1292,7 @@ export default {
     },
 
     emptyArea() {
-      return { id: '', name: '', fee: 0, active: true, sort_order: 0 }
+      return { id: '', name: '', fee: 0, deliveryMinutes: 45, active: true, sort_order: 0 }
     },
 
     emptyCheckout() {
@@ -1235,6 +1304,7 @@ export default {
         street: '',
         floor: '',
         apartment: '',
+        building: '',
         paymentMethod: 'cash',
         paymentReference: '',
         notes: ''
@@ -1346,7 +1416,7 @@ export default {
 
         let areasQuery = supabase
           .from('delivery_areas')
-          .select('id,name,fee,active,sort_order')
+          .select('id,name,fee,delivery_minutes,active,sort_order')
           .order('sort_order', { ascending: true })
 
         if (!isAdmin) {
@@ -1419,6 +1489,7 @@ export default {
           id: row.id,
           name: row.name,
           fee: Number(row.fee) || 0,
+          deliveryMinutes: Number(row.delivery_minutes) || 45,
           active: row.active !== false,
           sort_order: Number(row.sort_order) || 0
         }))
@@ -1502,6 +1573,7 @@ export default {
             preparation_deadline_at,
             preparation_completed_at,
             preparation_minutes,
+            delivery_minutes,
             delay_notified_at,
             subtotal,
             delivery_fee,
@@ -1553,6 +1625,7 @@ export default {
             subtotal: Number(row.subtotal) || 0,
             deliveryFee: Number(row.delivery_fee) || 0,
             total: Number(row.total) || 0,
+            deliveryMinutes: Number(row.delivery_minutes) || 45,
             paymentMethod,
             paymentStatus: this.paymentStatusLabel(row.payment_status, paymentMethod),
             paymentStatusRaw: row.payment_status || '',
@@ -1979,7 +2052,45 @@ export default {
 
       this.cartOpen = false
       this.checkoutOpen = true
+      this.checkoutStep = 1
+      if (!this.activeAreas.some(area => String(area.id) === String(this.checkout.areaId))) {
+        this.checkout.areaId = ''
+      }
       this.orderError = ''
+    },
+
+    continueToPayment() {
+      this.orderError = ''
+      if (!this.cart.length) {
+        this.orderError = 'السلة فاضية. ارجع للمنيو واختار الأصناف الأول.'
+        return
+      }
+      if (!this.checkout.name || !this.checkout.phone || !this.checkout.street) {
+        this.orderError = 'من فضلك اكتب الاسم ورقم الموبايل واسم الشارع قبل المتابعة.'
+        return
+      }
+      if (!this.selectedArea) {
+        this.orderError = 'اختار منطقة التوصيل علشان نحسب السعر والوقت بشكل صحيح.'
+        return
+      }
+      if (this.settings.cashOnDeliveryEnabled === false && this.checkout.paymentMethod === 'cash') {
+        this.checkout.paymentMethod = 'vodafone'
+      }
+      this.checkoutStep = 2
+    },
+
+    returnToCustomerDetails() {
+      this.checkoutStep = 1
+      this.orderError = ''
+    },
+
+    formatDeliveryMinutes(value) {
+      const minutes = Math.max(5, Math.round(Number(value) || 45))
+      if (minutes < 60) return minutes + ' دقيقة'
+      const hours = Math.floor(minutes / 60)
+      const remainder = minutes % 60
+      const hourLabel = hours === 1 ? 'ساعة' : 'ساعات'
+      return hours + ' ' + hourLabel + (remainder ? ' و ' + remainder + ' دقيقة' : '')
     },
 
     clearPaymentProofPreview() {
@@ -2017,6 +2128,11 @@ export default {
     async submitOrder() {
       if (this.sending) return
 
+      if (this.checkoutStep !== 2) {
+        this.orderError = 'راجع بيانات العميل والتوصيل أولًا.'
+        return
+      }
+
       if (!this.cart.length) {
         this.orderError = 'السلة فاضية.'
         return
@@ -2053,7 +2169,7 @@ export default {
             phone: this.checkout.phone,
             backupPhone: this.checkout.phone2 || '',
             streetAddress: this.checkout.street,
-            building: '',
+            building: this.checkout.building || '',
             floor: this.checkout.floor || '',
             apartment: this.checkout.apartment || '',
             notes: this.checkout.notes || '',
@@ -2102,6 +2218,7 @@ export default {
         this.proofFileName = ''
         this.paymentProofFile = null
         this.clearPaymentProofPreview()
+        this.checkoutStep = 1
         this.checkoutOpen = false
 
         this.showToast('تم إرسال الطلب إلى قاعدة البيانات.')
@@ -2562,8 +2679,8 @@ export default {
 
     async saveArea() {
       if (!this.adminLoggedIn) return
-      if (!this.areaForm.name || Number(this.areaForm.fee) < 0) {
-        this.adminError = 'أدخل اسم المنطقة وسعر توصيل صحيح.'
+      if (!this.areaForm.name || Number(this.areaForm.fee) < 0 || Number(this.areaForm.deliveryMinutes) < 5 || Number(this.areaForm.deliveryMinutes) > 360) {
+        this.adminError = 'أدخل اسم المنطقة وسعر توصيل صحيح ووقت توصيل من 5 إلى 360 دقيقة.'
         return
       }
 
@@ -2574,6 +2691,7 @@ export default {
         const payload = {
           name: String(this.areaForm.name).trim(),
           fee: Number(this.areaForm.fee) || 0,
+          delivery_minutes: Math.min(360, Math.max(5, Math.round(Number(this.areaForm.deliveryMinutes) || 45))),
           active: Boolean(this.areaForm.active),
           sort_order: Number(this.areaForm.sort_order) || this.areas.length + 1
         }
@@ -3934,6 +4052,42 @@ textarea {
   margin-inline-start: 10px;
   color: var(--accent);
   font-size: 11px;
+}
+
+.checkout-step { display: grid; gap: 16px; }
+.checkout-step-heading {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  justify-content: space-between; margin-bottom: 3px;
+}
+.checkout-step-heading > strong { font-size: 16px; }
+.delivery-summary-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 8px 0 4px;
+}
+.delivery-summary-tile {
+  display: flex; flex-direction: column; gap: 7px; padding: 13px 11px;
+  border: 1px solid rgba(213, 174, 105, 0.35); border-radius: 10px;
+  background: rgba(213, 174, 105, 0.06); min-width: 0;
+}
+.delivery-summary-tile span { color: #bca995; font-size: 11px; }
+.delivery-summary-tile strong { font-size: 13px; overflow-wrap: anywhere; }
+.payment-method-section { margin: 4px 0 12px; }
+.payment-method-section h3 { margin: 0 0 12px; }
+.payment-method-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.payment-method-option {
+  display: flex !important; flex-direction: row !important; align-items: center; gap: 8px;
+  padding: 12px 10px; border: 1px solid #594534; border-radius: 10px;
+  background: var(--card, #241d1b); cursor: pointer; min-width: 0;
+}
+.payment-method-option.selected { border-color: #d5ae69; box-shadow: 0 0 0 1px rgba(213,174,105,.2); }
+.payment-method-option input { flex: 0 0 auto; accent-color: #d5ae69; }
+.payment-method-option > span:last-child { display: grid; gap: 4px; min-width: 0; }
+.payment-method-option strong { font-size: 12px; }
+.payment-method-option small { font-size: 10px; color: #bca995; }
+.payment-method-icon { font-size: 18px; }
+@media (max-width: 520px) {
+  .delivery-summary-grid, .payment-method-options { grid-template-columns: 1fr; }
+  .delivery-summary-tile { flex-direction: row; justify-content: space-between; align-items: center; }
+  .payment-method-option { min-height: 54px; }
 }
 
 .payment-proof-input {
