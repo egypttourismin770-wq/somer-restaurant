@@ -1334,34 +1334,38 @@ export default {
     async updatePaymentStatus(dbId, status) {
       if (!this.adminLoggedIn || !['pending', 'review', 'paid', 'failed'].includes(status)) return
 
+      const order = this.orders.find(row => row.dbId === dbId)
+      if (!order) return
+
       try {
-        const update = { payment_status: status }
         if (status === 'paid') {
-          update.payment_confirmed_at = new Date().toISOString()
-          update.payment_confirmed_by = this.adminUser?.id || null
+          // Use the database confirmation function, which independently verifies the signed-in SUMER admin.
+          const { error } = await supabase.rpc('confirm_sumer_payment', {
+            p_order_number: Number(order.id),
+            p_reference: order.paymentReference || null
+          })
+          if (error) throw error
         } else {
-          update.payment_confirmed_at = null
-          update.payment_confirmed_by = null
+          const { error } = await supabase
+            .from('orders')
+            .update({
+              payment_status: status,
+              payment_confirmed_at: null,
+              payment_confirmed_by: null
+            })
+            .eq('id', dbId)
+
+          if (error) throw error
         }
 
-        const { error } = await supabase
-          .from('orders')
-          .update(update)
-          .eq('id', dbId)
-
-        if (error) throw error
-
-        const order = this.orders.find(row => row.dbId === dbId)
-        if (order) {
-          order.paymentStatusRaw = status
-          order.paymentStatus = this.paymentStatusLabel(status, order.paymentMethod)
-          order.paymentConfirmedAt = update.payment_confirmed_at || ''
-          order.paymentConfirmedBy = update.payment_confirmed_by || ''
-        }
+        order.paymentStatusRaw = status
+        order.paymentStatus = this.paymentStatusLabel(status, order.paymentMethod)
+        order.paymentConfirmedAt = status === 'paid' ? new Date().toISOString() : ''
+        order.paymentConfirmedBy = status === 'paid' ? this.adminUser?.id || '' : ''
         this.showToast(status === 'paid' ? 'تم تأكيد الدفع يدويًا وتحديث الطلب.' : 'تم تحديث حالة الدفع.')
       } catch (error) {
         console.error('SUMER payment status error:', error)
-        this.adminError = 'تعذر تحديث حالة الدفع. تحقق من صلاحيات جدول orders.'
+        this.adminError = 'تعذر تحديث حالة الدفع. تحقق من صلاحيات المدير وحالة الطلب.'
         await this.loadOrders()
       }
     },
