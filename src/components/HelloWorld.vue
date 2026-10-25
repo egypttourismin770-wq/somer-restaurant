@@ -244,10 +244,10 @@
         <div v-if="checkout.paymentMethod !== 'cash'" class="payment-details">
           <strong>بيانات الدفع</strong>
           <p v-if="checkout.paymentMethod === 'vodafone'">
-            محفظة فودافون كاش: {{ settings.vodafoneWallet || 'لم يضف المطعم رقم المحفظة بعد' }}
+            حوّل المبلغ على محفظة فودافون كاش: {{ settings.vodafoneWallet || 'لم يضف المطعم رقم المحفظة بعد' }}
           </p>
           <p v-else>
-            بيانات إنستاباي: {{ settings.instapayAddress || 'لم يضف المطعم بيانات إنستاباي بعد' }}
+            بيانات التحويل عبر إنستاباي: {{ settings.instapayAddress || 'لم يضف المطعم بيانات إنستاباي بعد' }}
           </p>
           <label class="upload-label">
             صورة إيصال التحويل * (مطلوبة)
@@ -256,8 +256,8 @@
           </label>
           <p v-if="proofFileName" class="hint">تم اختيار الصورة: {{ proofFileName }}</p>
           <img v-if="paymentProofPreviewUrl" class="payment-proof-selection-preview" :src="paymentProofPreviewUrl" alt="معاينة إيصال التحويل المختار" />
-          <label class="upload-label">رقم العملية (اختياري)
-            <input v-model.trim="checkout.paymentReference" maxlength="120" placeholder="رقم مرجع التحويل إن وُجد" />
+          <label class="upload-label">رقم مرجع التحويل / رقم العملية (لو ظاهر في الإيصال)
+            <input v-model.trim="checkout.paymentReference" maxlength="120" placeholder="اكتب رقم مرجع التحويل الظاهر في الإيصال" />
           </label>
           <p class="hint">سيظل الدفع «مراجعة مطلوبة» لحد ما الإدارة تراجع الإيصال وتؤكد استلام المبلغ.</p>
         </div>
