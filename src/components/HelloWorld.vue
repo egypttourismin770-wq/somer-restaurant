@@ -249,10 +249,14 @@
             بيانات إنستاباي: {{ settings.instapayAddress || 'لم يضف المطعم بيانات إنستاباي بعد' }}
           </p>
           <label class="upload-label">
-            صورة التحويل (اختياري)
-            <input type="file" accept="image/*" @change="handleProofUpload" />
+            صورة إيصال التحويل * (مطلوبة)
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" required @change="handleProofUpload" />
           </label>
-          <p class="hint">اختيار الصورة هنا لا يرفعها إلى الخادم ولا يؤكد الدفع.</p>
+          <p v-if="proofFileName" class="hint">تم اختيار: {{ proofFileName }}</p>
+          <label class="upload-label">رقم العملية (اختياري)
+            <input v-model.trim="checkout.paymentReference" maxlength="120" placeholder="رقم مرجع التحويل إن وُجد" />
+          </label>
+          <p class="hint">سيظل الدفع «مراجعة مطلوبة» لحد ما الإدارة تراجع الإيصال وتؤكد استلام المبلغ.</p>
         </div>
 
         <label>ملاحظات إضافية
@@ -351,7 +355,16 @@
             <p><strong>العميل:</strong> {{ order.customer.name }} — {{ order.customer.phone }}</p>
             <p><strong>الهاتف البديل:</strong> {{ order.customer.phone2 || '—' }}</p>
             <p><strong>العنوان:</strong> {{ order.customer.areaName }}، {{ order.customer.street }}، الدور {{ order.customer.floor || '—' }}، شقة {{ order.customer.apartment || '—' }}</p>
-            <p><strong>الدفع:</strong> {{ paymentLabel(order.paymentMethod) }} — {{ order.paymentStatus }}</p>
+            <p><strong>الدفع:</strong> {{ paymentLabel(order.paymentMethod) }} —
+              <span class="status-pill" :class="{ paid: order.paymentStatusRaw === 'paid' }">{{ order.paymentStatus }}</span>
+            </p>
+            <p v-if="order.paymentReference"><strong>رقم العملية:</strong> {{ order.paymentReference }}</p>
+            <p v-if="order.paymentProofPath">
+              <strong>إيصال التحويل:</strong>
+              <button class="secondary-button small-button" @click="preparePaymentProof(order)">تجهيز رابط عرض الإيصال</button>
+              <a v-if="order.paymentProofUrl" class="proof-link" :href="order.paymentProofUrl" target="_blank" rel="noopener">عرض الإيصال في تبويب جديد</a>
+            </p>
+            <p v-else-if="order.paymentMethod !== 'cash'"><strong>تنبيه:</strong> لا يوجد مسار إيصال محفوظ لهذا الطلب.</p>
             <p><strong>التاريخ:</strong> {{ order.createdAt }}</p>
             <p><strong>الإجمالي:</strong> {{ money(order.total) }}</p>
             <div v-for="item in order.items" :key="item.id" class="order-line">
@@ -369,10 +382,11 @@
                 </select>
               </label>
               <label v-if="order.paymentMethod !== 'cash'">حالة الدفع
-                <select :value="order.paymentStatus" @change="updatePaymentStatus(order.dbId, $event.target.value)">
-                  <option>مراجعة مطلوبة</option>
-                  <option>تم التحقق يدويًا</option>
-                  <option>مرفوض</option>
+                <select :value="order.paymentStatusRaw" @change="updatePaymentStatus(order.dbId, $event.target.value)">
+                  <option value="pending">مراجعة مطلوبة</option>
+                  <option value="review">مراجعة مطلوبة</option>
+                  <option value="paid">تم الدفع</option>
+                  <option value="failed">مرفوض</option>
                 </select>
               </label>
             </div>
@@ -706,6 +720,7 @@ export default {
       confirmedOrder: null,
       checkout: this.emptyCheckout(),
       proofFileName: '',
+      paymentProofFile: null,
       orderError: '',
       sending: false,
 
@@ -918,6 +933,7 @@ export default {
         floor: '',
         apartment: '',
         paymentMethod: 'cash',
+        paymentReference: '',
         notes: ''
       }
     },
@@ -1169,6 +1185,10 @@ export default {
             apartment,
             payment_method,
             payment_status,
+            payment_proof_path,
+            payment_reference,
+            payment_confirmed_at,
+            payment_confirmed_by,
             order_status,
             subtotal,
             delivery_fee,
@@ -1223,6 +1243,11 @@ export default {
             paymentMethod,
             paymentStatus: this.paymentStatusLabel(row.payment_status, paymentMethod),
             paymentStatusRaw: row.payment_status || '',
+            paymentProofPath: row.payment_proof_path || '',
+            paymentReference: row.payment_reference || '',
+            paymentConfirmedAt: row.payment_confirmed_at || '',
+            paymentConfirmedBy: row.payment_confirmed_by || '',
+            paymentProofUrl: '',
             status: this.orderStatusLabel(row.order_status),
             notes: row.notes || ''
           }
@@ -1269,7 +1294,7 @@ export default {
 
       const value = String(status || '').toLowerCase()
       if (['pending', 'unpaid', 'review', 'under_review', ''].includes(value)) return 'مراجعة مطلوبة'
-      if (['verified', 'paid', 'confirmed', 'success'].includes(value)) return 'تم التحقق يدويًا'
+      if (['paid', 'confirmed', 'success'].includes(value)) return 'تم الدفع'
       if (['rejected', 'failed', 'declined'].includes(value)) return 'مرفوض'
 
       return status || 'مراجعة مطلوبة'
@@ -1307,32 +1332,54 @@ export default {
     },
 
     async updatePaymentStatus(dbId, status) {
-      if (!this.adminLoggedIn) return
-
-      const databaseStatus = {
-        'مراجعة مطلوبة': 'pending',
-        'تم التحقق يدويًا': 'verified',
-        'مرفوض': 'rejected'
-      }[status] || status
+      if (!this.adminLoggedIn || !['pending', 'review', 'paid', 'failed'].includes(status)) return
 
       try {
+        const update = { payment_status: status }
+        if (status === 'paid') {
+          update.payment_confirmed_at = new Date().toISOString()
+          update.payment_confirmed_by = this.adminUser?.id || null
+        } else {
+          update.payment_confirmed_at = null
+          update.payment_confirmed_by = null
+        }
+
         const { error } = await supabase
           .from('orders')
-          .update({ payment_status: databaseStatus })
+          .update(update)
           .eq('id', dbId)
 
         if (error) throw error
 
         const order = this.orders.find(row => row.dbId === dbId)
         if (order) {
-          order.paymentStatus = status
-          order.paymentStatusRaw = databaseStatus
+          order.paymentStatusRaw = status
+          order.paymentStatus = this.paymentStatusLabel(status, order.paymentMethod)
+          order.paymentConfirmedAt = update.payment_confirmed_at || ''
+          order.paymentConfirmedBy = update.payment_confirmed_by || ''
         }
-        this.showToast('تم تحديث حالة الدفع.')
+        this.showToast(status === 'paid' ? 'تم تأكيد الدفع يدويًا وتحديث الطلب.' : 'تم تحديث حالة الدفع.')
       } catch (error) {
         console.error('SUMER payment status error:', error)
         this.adminError = 'تعذر تحديث حالة الدفع. تحقق من صلاحيات جدول orders.'
         await this.loadOrders()
+      }
+    },
+
+    async preparePaymentProof(order) {
+      if (!this.adminLoggedIn || !order?.paymentProofPath) return
+
+      try {
+        const { data, error } = await supabase
+          .storage
+          .from('sumer-payment-proofs')
+          .createSignedUrl(order.paymentProofPath, 60)
+
+        if (error) throw error
+        order.paymentProofUrl = data.signedUrl
+      } catch (error) {
+        console.error('SUMER payment proof access error:', error)
+        this.adminError = 'تعذر تجهيز رابط الإيصال. تأكد من صلاحيات المدير ومخزن الإيصالات.'
       }
     },
 
@@ -1418,11 +1465,25 @@ export default {
 
     handleProofUpload(event) {
       const file = event.target.files && event.target.files[0]
-      this.proofFileName = file ? file.name : ''
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/avif']
+      this.orderError = ''
 
-      if (file) {
-        this.showToast('تم اختيار اسم الملف للمعاينة فقط. الصورة لم تُرفع إلى Supabase Storage.')
+      if (!file) {
+        this.paymentProofFile = null
+        this.proofFileName = ''
+        return
       }
+
+      if (!allowedTypes.includes(file.type) || file.size > 2 * 1024 * 1024) {
+        this.paymentProofFile = null
+        this.proofFileName = ''
+        event.target.value = ''
+        this.orderError = 'ارفع صورة بصيغة JPG أو PNG أو WEBP أو AVIF، وبحجم لا يتجاوز 2 ميجابايت.'
+        return
+      }
+
+      this.paymentProofFile = file
+      this.proofFileName = file.name
     },
 
     async submitOrder() {
@@ -1440,6 +1501,11 @@ export default {
 
       if (this.checkout.paymentMethod === 'cash' && this.settings.cashOnDeliveryEnabled === false) {
         this.orderError = 'الدفع عند الاستلام غير متاح حاليًا.'
+        return
+      }
+
+      if (this.checkout.paymentMethod !== 'cash' && !this.paymentProofFile) {
+        this.orderError = 'لازم ترفع صورة إيصال التحويل قبل تأكيد الطلب.'
         return
       }
 
@@ -1464,7 +1530,8 @@ export default {
             apartment: this.checkout.apartment || '',
             notes: this.checkout.notes || '',
             areaId: this.checkout.areaId,
-            paymentMethod
+            paymentMethod,
+            paymentReference: this.checkout.paymentReference || ''
           },
           items: this.cart.map(item => ({
             productId: item.id,
@@ -1472,8 +1539,14 @@ export default {
           }))
         }
 
+        const formData = new FormData()
+        formData.append('order', JSON.stringify(requestBody))
+        if (this.checkout.paymentMethod !== 'cash' && this.paymentProofFile) {
+          formData.append('paymentProof', this.paymentProofFile, this.paymentProofFile.name)
+        }
+
         const { data, error } = await supabase.functions.invoke('create-sumer-order', {
-          body: requestBody
+          body: formData
         })
 
         if (error) throw error
@@ -1491,6 +1564,7 @@ export default {
         this.cart = []
         this.checkout = this.emptyCheckout()
         this.proofFileName = ''
+        this.paymentProofFile = null
         this.checkoutOpen = false
 
         this.showToast('تم إرسال الطلب إلى قاعدة البيانات.')
@@ -3210,6 +3284,19 @@ textarea {
 .status-pill.connected {
   border-color: #326c4a;
   color: #9be1b3;
+}
+
+.status-pill.paid {
+  border-color: #23864d;
+  color: #b8f5c9;
+  background: rgba(35, 134, 77, 0.12);
+}
+
+.proof-link {
+  display: inline-block;
+  margin-inline-start: 10px;
+  color: var(--accent);
+  font-size: 11px;
 }
 
 .status-pill.disconnected {
