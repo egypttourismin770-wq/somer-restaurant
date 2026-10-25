@@ -690,8 +690,8 @@ function defaultSettings() {
     whatsapp: '',
     vodafoneWallet: '',
     instapayAddress: '',
-    publicUrl: 'https://somer-restaurant.egypttourismin770.workers.dev',
-    menuUrl: 'https://somer-restaurant.egypttourismin770.workers.dev/#menu',
+    publicUrl: '',
+    menuUrl: '',
     menuQrEnabled: false,
     slideSeconds: 6,
     bgColor: '#171313',
@@ -857,7 +857,8 @@ export default {
     },
 
     menuQrTarget() {
-      const target = String(this.settings.menuUrl || '').trim()
+      const explicitTarget = String(this.settings.menuUrl || '').trim()
+      const target = explicitTarget || (this.settings.publicUrl ? String(this.settings.publicUrl).trim().replace(/\\/$/, '') + '/#menu' : '')
       return this.isValidUrl(target) ? target : ''
     },
 
