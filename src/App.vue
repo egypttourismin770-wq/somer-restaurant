@@ -6,12 +6,14 @@
 </template>
 
 <script>
+import { defineAsyncComponent } from 'vue'
+
 export default {
   name: 'App',
   components: {
     // Separate page bundles: the public site and delivery dashboard are loaded independently.
-    HelloWorld: () => import(/* webpackChunkName: "site-control" */ './components/HelloWorld.vue'),
-    OrdersDashboard: () => import(/* webpackChunkName: "orders-dashboard" */ './components/OrdersDashboard.vue')
+    HelloWorld: defineAsyncComponent(() => import(/* webpackChunkName: "site-control" */ './components/HelloWorld.vue')),
+    OrdersDashboard: defineAsyncComponent(() => import(/* webpackChunkName: "orders-dashboard" */ './components/OrdersDashboard.vue'))
   },
   computed: {
     isOrdersDashboard() {
