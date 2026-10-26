@@ -22,8 +22,23 @@ const ORDER_STATUSES = new Set([
   "cancelled",
 ]);
 
-function normaliseEmail(value: unknown) {
-  return String(value ?? "").trim().toLowerCase();
+function normaliseStaffPhone(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  const digits = raw.replace(/\D/g, "");
+  let canonical = "";
+
+  if (raw.startsWith("+")) canonical = "+" + digits;
+  else if (digits.startsWith("00")) canonical = "+" + digits.slice(2);
+  else if (digits.length === 11 && digits.startsWith("0")) canonical = "+2" + digits;
+  else if (digits.length === 12 && digits.startsWith("20")) canonical = "+" + digits;
+  else if (digits.length === 10 && digits.startsWith("1")) canonical = "+20" + digits;
+
+  return /^\+201[0125]\d{8}$/.test(canonical) ? canonical : "";
+}
+
+function staffLoginEmail(phone: string) {
+  // Internal Auth alias only; the employee signs in with their phone number.
+  return "staff." + phone.replace(/\D/g, "") + "@staff.sumer.invalid";
 }
 
 Deno.serve(async (req: Request) => {
@@ -82,24 +97,34 @@ Deno.serve(async (req: Request) => {
 
     if (action === "create_staff") {
       if (!isAdmin) return json({ ok: false, error: "إضافة الموظفين متاحة لمدير الموقع فقط." }, 403);
-      const email = normaliseEmail(body.email);
+      const phone = normaliseStaffPhone(body.phone);
       const password = String(body.password ?? "");
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return json({ ok: false, error: "اكتب بريدًا إلكترونيًا صحيحًا للموظف." }, 400);
+      if (!phone) {
+        return json({ ok: false, error: "اكتب رقم موبايل مصري صحيح يبدأ بـ 010 أو 011 أو 012 أو 015." }, 400);
       }
       if (password.length < 8 || password.length > 128) {
-        return json({ ok: false, error: "كلمة مرور الموظف لازم تكون من 8 إلى 128 حرفًا." }, 400);
+        return json({ ok: false, error: "كلمة المرور لازم تكون من 8 إلى 128 حرفًا." }, 400);
       }
 
+      const { data: existingStaff, error: phoneLookupError } = await db
+        .from("order_staff_users")
+        .select("user_id")
+        .eq("phone", phone)
+        .maybeSingle();
+      if (phoneLookupError) throw phoneLookupError;
+      if (existingStaff) return json({ ok: false, error: "رقم التليفون ده مضاف بالفعل لموظف آخر." }, 409);
+
+      const internalEmail = staffLoginEmail(phone);
       const { data: createdUser, error: createUserError } = await db.auth.admin.createUser({
-        email,
+        email: internalEmail,
         password,
         email_confirm: true,
+        user_metadata: { sumer_staff_phone: phone },
       });
       if (createUserError || !createdUser?.user) {
         const message = createUserError?.message?.toLowerCase() || "";
         if (message.includes("already") || message.includes("registered") || message.includes("exists")) {
-          return json({ ok: false, error: "البريد الإلكتروني ده مستخدم بالفعل. استخدم بريدًا آخر." }, 409);
+          return json({ ok: false, error: "رقم التليفون ده مستخدم بالفعل. راجع قائمة الموظفين." }, 409);
         }
         console.error("SUMER staff account creation failed", { message: createUserError?.message || "unknown" });
         return json({ ok: false, error: "تعذر إنشاء حساب الموظف. راجع إعدادات Auth وحاول مرة أخرى." }, 500);
@@ -108,6 +133,7 @@ Deno.serve(async (req: Request) => {
       const { error: grantError } = await db.from("order_staff_users").insert({
         user_id: createdUser.user.id,
         created_by: user.id,
+        phone,
       });
       if (grantError) {
         await db.auth.admin.deleteUser(createdUser.user.id);
@@ -119,7 +145,7 @@ Deno.serve(async (req: Request) => {
         ok: true,
         staffUser: {
           userId: createdUser.user.id,
-          email: createdUser.user.email || email,
+          phone,
           createdAt: createdUser.user.created_at || new Date().toISOString(),
         },
       });
@@ -129,7 +155,7 @@ Deno.serve(async (req: Request) => {
       if (!isAdmin) return json({ ok: false, error: "عرض حسابات الموظفين متاح لمدير الموقع فقط." }, 403);
       const { data: staffRows, error: listError } = await db
         .from("order_staff_users")
-        .select("user_id,created_at")
+        .select("user_id,phone,created_at")
         .order("created_at", { ascending: false })
         .limit(100);
       if (listError) throw listError;
@@ -139,7 +165,7 @@ Deno.serve(async (req: Request) => {
         const { data: userData } = await db.auth.admin.getUserById(row.user_id);
         staffUsers.push({
           userId: row.user_id,
-          email: userData?.user?.email || "حساب بدون بريد ظاهر",
+          phone: row.phone || "",
           createdAt: row.created_at,
         });
       }
