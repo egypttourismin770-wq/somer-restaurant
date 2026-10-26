@@ -458,9 +458,9 @@
         <!-- إدارة حسابات موظفي الأوردرات — لمدير الموقع فقط -->
         <div v-if="adminTab === 'staff'" class="admin-content">
           <h3>حسابات موظفي لوحة الأوردرات</h3>
-          <p class="hint">سجّل لكل موظف رقم تليفونه وكلمة المرور اللي هتسلمهاله. الموظف هيدخل بالرقم وكلمة المرور فقط، وصلاحيته لوحة متابعة الأوردرات دون التحكم في الموقع أو الاطلاع على إيصالات الدفع.</p>
+          <p class="hint">أضف رقم الموظف وكلمة مروره. لو الرقم مضاف بالفعل، اكتب نفس الرقم وكلمة مرور جديدة واضغط الزر لتحديثها. الموظف يدخل بالرقم وكلمة المرور فقط، وصلاحيته لوحة متابعة الأوردرات دون التحكم في الموقع أو الاطلاع على إيصالات الدفع.</p>
           <form class="admin-form" @submit.prevent="createStaffAccount">
-            <h4>إضافة موظف جديد</h4>
+            <h4>إضافة موظف أو تحديث كلمة مروره</h4>
             <label>رقم تليفون الموظف *
               <input v-model.trim="staffPhone" type="tel" inputmode="tel" required maxlength="24" autocomplete="off" placeholder="01012345678" />
             </label>
@@ -468,7 +468,7 @@
               <input v-model="staffPassword" type="password" required minlength="8" maxlength="128" autocomplete="new-password" placeholder="كلمة مرور حساب الموظف" />
             </label>
             <div class="admin-inline">
-              <button class="primary-button" type="submit" :disabled="adminBusy">{{ adminBusy ? 'جاري إنشاء الحساب...' : 'إنشاء حساب وصلاحية الأوردرات' }}</button>
+              <button class="primary-button" type="submit" :disabled="adminBusy">{{ adminBusy ? 'جاري الحفظ...' : 'حفظ حساب الموظف / تحديث كلمة المرور' }}</button>
             </div>
           </form>
           <div class="admin-title-row">
@@ -1830,7 +1830,7 @@ export default {
         if (!data?.ok) throw new Error(data?.error || 'تعذر إنشاء حساب الموظف.')
         this.staffPhone = ''
         this.staffPassword = ''
-        this.showToast('تم إنشاء حساب الموظف برقم تليفونه وتفعيل صلاحية متابعة الأوردرات فقط.')
+        this.showToast(data.mode === 'password_reset' ? 'تم تحديث كلمة مرور الموظف. استخدم كلمة المرور الجديدة في لوحة الأوردرات.' : 'تم إنشاء حساب الموظف وتفعيل صلاحية متابعة الأوردرات فقط.')
         await this.loadStaffAccounts()
       } catch (error) {
         console.error('SUMER staff create error:', error)
