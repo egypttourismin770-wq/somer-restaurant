@@ -458,11 +458,11 @@
         <!-- إدارة حسابات موظفي الأوردرات — لمدير الموقع فقط -->
         <div v-if="adminTab === 'staff'" class="admin-content">
           <h3>حسابات موظفي لوحة الأوردرات</h3>
-          <p class="hint">أنشئ لكل موظف حسابًا منفصلًا. الحساب ده هيفتح لوحة الطلبات فقط، ومش هيفتح ترس إدارة الموقع أو إيصالات الدفع. تقدر تختار نفس كلمة المرور لو كنت تقصد رمزًا موحدًا، لكن كلمة مرور مختلفة لكل موظف أكثر أمانًا.</p>
+          <p class="hint">سجّل لكل موظف رقم تليفونه وكلمة المرور اللي هتسلمهاله. الموظف هيدخل بالرقم وكلمة المرور فقط، وصلاحيته لوحة متابعة الأوردرات دون التحكم في الموقع أو الاطلاع على إيصالات الدفع.</p>
           <form class="admin-form" @submit.prevent="createStaffAccount">
             <h4>إضافة موظف جديد</h4>
-            <label>البريد الإلكتروني للموظف *
-              <input v-model.trim="staffEmail" type="email" required maxlength="254" autocomplete="off" placeholder="employee@example.com" />
+            <label>رقم تليفون الموظف *
+              <input v-model.trim="staffPhone" type="tel" inputmode="tel" required maxlength="24" autocomplete="off" placeholder="01012345678" />
             </label>
             <label>كلمة مرور الموظف (8 أحرف على الأقل) *
               <input v-model="staffPassword" type="password" required minlength="8" maxlength="128" autocomplete="new-password" placeholder="كلمة مرور حساب الموظف" />
@@ -479,7 +479,7 @@
           <div v-else-if="!staffAccounts.length" class="empty-state">لسه مفيش حسابات موظفين مفعلة.</div>
           <article v-for="staff in staffAccounts" :key="staff.userId" class="admin-list-item">
             <div class="admin-list-main">
-              <strong>{{ staff.email }}</strong>
+              <strong>{{ staff.phone }}</strong>
               <small>صلاحية: لوحة الأوردرات فقط</small>
               <small>تاريخ الإضافة: {{ staff.createdAt ? new Date(staff.createdAt).toLocaleDateString('ar-EG') : '—' }}</small>
             </div>
@@ -985,7 +985,7 @@ export default {
       adminError: '',
       adminBusy: false,
       adminTab: 'products',
-      staffEmail: '',
+      staffPhone: '',
       staffPassword: '',
       staffAccounts: [],
       staffLoading: false,
@@ -1822,15 +1822,15 @@ export default {
         const { data, error } = await supabase.functions.invoke('sumer-orders-dashboard', {
           body: {
             action: 'create_staff',
-            email: this.staffEmail,
+            phone: this.staffPhone,
             password: this.staffPassword
           }
         })
         if (error) throw error
         if (!data?.ok) throw new Error(data?.error || 'تعذر إنشاء حساب الموظف.')
-        this.staffEmail = ''
+        this.staffPhone = ''
         this.staffPassword = ''
-        this.showToast('تم إنشاء حساب الموظف وتفعيل صلاحية لوحة الأوردرات فقط.')
+        this.showToast('تم إنشاء حساب الموظف برقم تليفونه وتفعيل صلاحية متابعة الأوردرات فقط.')
         await this.loadStaffAccounts()
       } catch (error) {
         console.error('SUMER staff create error:', error)
