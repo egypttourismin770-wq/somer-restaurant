@@ -1,4 +1,6 @@
 module.exports = {
   lintOnSave: false,
-  publicPath: process.env.NODE_ENV === 'production' ? '/somer-restaurant/' : '/'
+  // Relative asset paths work both at a repository subpath on GitHub Pages
+  // and at the root of a workers.dev/static-host deployment.
+  publicPath: './'
 }
