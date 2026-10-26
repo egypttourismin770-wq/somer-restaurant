@@ -19,7 +19,7 @@
     </nav>
 
     <div class="top-actions">
-      <button class="language-toggle" type="button" @click="toggleLanguage" :aria-label="language === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'">{{ language === 'ar' ? 'English' : 'العربية' }}</button>
+      <button class="language-toggle" type="button" @click="toggleLanguage" :aria-label="language === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'">{{ t(language === 'ar' ? 'English' : 'العربية') }}</button>
       <a v-if="settings.whatsapp" class="whatsapp-top" :href="whatsappUrl" target="_blank" rel="noopener">{{ t("واتساب") }}</a>
       <button class="cart-button" @click="cartOpen = true">{{ t("🛒 السلة") }} <span>{{ cartCount }}</span></button>
       <a class="orders-dashboard-top-link" :href="ordersDashboardUrl">{{ t("لوحة الأوردرات") }}</a>
@@ -48,7 +48,7 @@
           v-for="(slide, index) in slides"
           :key="slide.id"
           :class="{ active: index === slideIndex }"
-          :aria-label="'الصورة ' + (index + 1)"
+          :aria-label="language === 'en' ? 'Image ' + (index + 1) : 'الصورة ' + (index + 1)"
           @click="setSlide(index)"
         ></button>
       </div>
@@ -97,7 +97,7 @@
             <div class="product-bottom">
               <strong>{{ money(product.price) }}</strong>
               <button :disabled="product.available === false" @click="addToCart(product)">
-                {{ product.available === false ? 'غير متاح' : '+ أضف للسلة' }}
+                {{ t(product.available === false ? 'غير متاح' : '+ أضف للسلة') }}
               </button>
             </div>
           </div>
@@ -135,15 +135,15 @@
       <div class="contact-grid">
         <div class="contact-card">
           <span>⌖</span><strong>{{ t("العنوان") }}</strong>
-          <p>{{ settings.address || 'أضف عنوان المطعم من لوحة الإدارة' }}</p>
+          <p>{{ t(settings.address || 'أضف عنوان المطعم من لوحة الإدارة') }}</p>
         </div>
         <div class="contact-card">
           <span>☎</span><strong>{{ t("رقم الهاتف") }}</strong>
-          <p>{{ settings.phone || 'أضف رقم الهاتف من لوحة الإدارة' }}</p>
+          <p>{{ t(settings.phone || 'أضف رقم الهاتف من لوحة الإدارة') }}</p>
         </div>
         <div class="contact-card">
           <span>◷</span><strong>{{ t("مواعيد العمل") }}</strong>
-          <p>{{ settings.hours || 'أضف مواعيد العمل من لوحة الإدارة' }}</p>
+          <p>{{ t(settings.hours || 'أضف مواعيد العمل من لوحة الإدارة') }}</p>
         </div>
       </div>
     </section>
@@ -311,10 +311,10 @@
           <div v-if="checkout.paymentMethod !== 'cash'" class="payment-details">
             <strong>{{ t("بيانات الدفع") }}</strong>
             <p v-if="checkout.paymentMethod === 'vodafone'">
-              {{ t("حوّل المبلغ على محفظة فودافون كاش:") }} <strong>{{ settings.vodafoneWallet || 'لم يضف المطعم رقم المحفظة بعد' }}</strong>
+              {{ t("حوّل المبلغ على محفظة فودافون كاش:") }} <strong>{{ t(settings.vodafoneWallet || 'لم يضف المطعم رقم المحفظة بعد') }}</strong>
             </p>
             <p v-else>
-              {{ t("بيانات التحويل عبر إنستاباي:") }} <strong>{{ settings.instapayAddress || 'لم يضف المطعم بيانات إنستاباي بعد' }}</strong>
+              {{ t("بيانات التحويل عبر إنستاباي:") }} <strong>{{ t(settings.instapayAddress || 'لم يضف المطعم بيانات إنستاباي بعد') }}</strong>
             </p>
             <p class="hint">{{ t("راجع الإجمالي النهائي أعلاه وحوّل نفس المبلغ. بعد التحويل، ارفع صورة الإيصال.") }}</p>
             <label class="upload-label">
@@ -337,7 +337,7 @@
           <p v-if="orderError" class="hint error-message">{{ t(orderError) }}</p>
           <p class="hint">{{ t("قبل تأكيد الطلب، راجع الأصناف والمنطقة ووقت التوصيل والإجمالي وطريقة الدفع.") }}</p>
           <button class="primary-button full-button" type="submit" :disabled="sending">
-            {{ sending ? 'جاري إرسال الطلب...' : 'تأكيد الطلب وإرسال الأوردر' }}
+            {{ t(sending ? 'جاري إرسال الطلب...' : 'تأكيد الطلب وإرسال الأوردر') }}
           </button>
         </div>
       </form>
@@ -359,7 +359,7 @@
         {{ t("تم حفظ الطلب، لكن تعذّر إرسال جزء من إشعار واتساب أو صورة الإيصال. راجع سجل الوظيفة قبل إعادة المحاولة.") }}
       </p>
       <p v-else-if="confirmedOrder.whatsappNotification && confirmedOrder.whatsappNotification.startsWith('summary_sent')" class="hint">
-        {{ t("تم قبول ملخص الطلب للإرسال عبر واتساب. حالة الصور:") }} {{ confirmedOrder.whatsappNotification.includes('images_sent') ? 'تم قبول إرسال الصور' : 'لم يتم تأكيد إرسال صور الأصناف' }}.
+        {{ t("تم قبول ملخص الطلب للإرسال عبر واتساب. حالة الصور:") }} {{ t(confirmedOrder.whatsappNotification.includes('images_sent') ? 'تم قبول إرسال الصور' : 'لم يتم تأكيد إرسال صور الأصناف') }}.
       </p>
       <button class="primary-button full-button" @click="openTrackingFromConfirmation">{{ t("متابعة الأوردر") }}</button>
       <button class="secondary-button full-button" @click="confirmedOrder = null">{{ t("تمام") }}</button>
@@ -389,7 +389,7 @@
           </label>
           <p v-if="loginError" class="error-message">{{ t(loginError) }}</p>
           <button class="primary-button full-button" type="submit" :disabled="adminBusy">
-            {{ adminBusy ? 'جاري التحقق...' : 'تسجيل الدخول' }}
+            {{ t(adminBusy ? 'جاري التحقق...' : 'تسجيل الدخول') }}
           </button>
         </form>
         <p class="hint">{{ t("يلزم إضافة معرّف حساب المدير إلى جدول admin_users. لا توجد كلمة مرور ثابتة داخل هذا الملف.") }}</p>
@@ -412,7 +412,7 @@
           <div class="admin-title-row">
             <h3>{{ t("إيصالات الدفع ومراجعة التحويلات") }}</h3>
             <button class="secondary-button" type="button" @click="loadOrders" :disabled="ordersLoading">
-              {{ ordersLoading ? 'جاري التحديث...' : 'تحديث الإيصالات' }}
+              {{ t(ordersLoading ? 'جاري التحديث...' : 'تحديث الإيصالات') }}
             </button>
           </div>
           <p class="hint">{{ t("هذه الشاشة خاصة بمدير الموقع لمراجعة صور التحويل وتأكيد الدفع. الموظفون في لوحة الأوردرات لا تظهر لهم هذه البيانات.") }}</p>
@@ -432,11 +432,11 @@
               <div class="admin-inline">
                 <strong>{{ t("إيصال التحويل:") }}</strong>
                 <button class="secondary-button small-button" type="button" @click="preparePaymentProof(order)">
-                  {{ order.paymentProofUrl ? 'تحديث صورة الإيصال' : 'عرض صورة الإيصال هنا' }}
+                  {{ t(order.paymentProofUrl ? 'تحديث صورة الإيصال' : 'عرض صورة الإيصال هنا') }}
                 </button>
               </div>
               <a v-if="order.paymentProofUrl" class="payment-proof-preview-link" :href="order.paymentProofUrl" target="_blank" rel="noopener">
-                <img class="payment-proof-admin-preview" :src="order.paymentProofUrl" :alt="'إيصال التحويل للأوردر ' + order.id" />
+                <img class="payment-proof-admin-preview" :src="order.paymentProofUrl" :alt="language === 'en' ? 'Transfer receipt for order ' + order.id : 'إيصال التحويل للأوردر ' + order.id" />
               </a>
               <p v-if="order.paymentProofUrl" class="hint">{{ t("اضغط على الصورة لفتحها بالحجم الكامل.") }}</p>
             </div>
@@ -469,12 +469,12 @@
               <input v-model="staffPassword" type="password" required minlength="8" maxlength="128" autocomplete="new-password" :placeholder="t('كلمة مرور حساب الموظف')" />
             </label>
             <div class="admin-inline">
-              <button class="primary-button" type="submit" :disabled="adminBusy">{{ adminBusy ? 'جاري الحفظ...' : 'حفظ حساب الموظف / تحديث كلمة المرور' }}</button>
+              <button class="primary-button" type="submit" :disabled="adminBusy">{{ t(adminBusy ? 'جاري الحفظ...' : 'حفظ حساب الموظف / تحديث كلمة المرور') }}</button>
             </div>
           </form>
           <div class="admin-title-row">
             <h4>{{ t("الحسابات المفعلة") }}</h4>
-            <button class="secondary-button" type="button" @click="loadStaffAccounts" :disabled="staffLoading">{{ staffLoading ? 'جاري التحميل...' : 'تحديث القائمة' }}</button>
+            <button class="secondary-button" type="button" @click="loadStaffAccounts" :disabled="staffLoading">{{ t(staffLoading ? 'جاري التحميل...' : 'تحديث القائمة') }}</button>
           </div>
           <div v-if="staffLoading && !staffAccounts.length" class="empty-state">{{ t("جاري تحميل حسابات الموظفين...") }}</div>
           <div v-else-if="!staffAccounts.length" class="empty-state">{{ t("لسه مفيش حسابات موظفين مفعلة.") }}</div>
@@ -493,7 +493,7 @@
           <div class="admin-title-row">
             <h3>{{ t("سجل رسائل واتساب") }}</h3>
             <button class="secondary-button" @click="loadWhatsAppMessages" :disabled="whatsappLogLoading">
-              {{ whatsappLogLoading ? 'جاري التحديث...' : 'تحديث السجل' }}
+              {{ t(whatsappLogLoading ? 'جاري التحديث...' : 'تحديث السجل') }}
             </button>
           </div>
           <p class="hint">{{ t("يعرض رسائل الاختبار وإشعارات الطلبات وحالة التسليم التي وصلتنا من 360dialog.") }}</p>
@@ -506,7 +506,7 @@
                 {{ whatsappMessageStatusLabel(message.status) }}
               </span>
             </div>
-            <p><strong>{{ t("الطلب:") }}</strong> {{ message.orderNumber ? '#' + message.orderNumber : 'رسالة اختبار' }}</p>
+            <p><strong>{{ t("الطلب:") }}</strong> {{ t(message.orderNumber ? '#' + message.orderNumber : 'رسالة اختبار') }}</p>
             <p><strong>{{ t("تاريخ التسجيل:") }}</strong> {{ message.createdAt ? new Date(message.createdAt).toLocaleString('ar-EG') : '—' }}</p>
             <p v-if="message.providerTimestamp"><strong>{{ t("آخر تحديث من واتساب:") }}</strong> {{ new Date(message.providerTimestamp).toLocaleString('ar-EG') }}</p>
             <p v-if="message.lastError" class="hint error-message"><strong>{{ t("تفاصيل الخطأ:") }}</strong> {{ JSON.stringify(message.lastError) }}</p>
@@ -526,7 +526,7 @@
           </div>
 
           <form v-if="productFormOpen" class="admin-form" @submit.prevent="saveProduct">
-            <h4>{{ editingId ? 'تعديل الصنف' : 'إضافة صنف جديد' }}</h4>
+            <h4>{{ t(editingId ? 'تعديل الصنف' : 'إضافة صنف جديد') }}</h4>
             <div class="form-grid">
               <label>{{ t("اسم الصنف *") }}
                 <input v-model.trim="productForm.name" required />
@@ -550,7 +550,7 @@
             </div>
             <p class="hint">{{ t("تفعيل وإيقاف المنتج يُحفظ في عمود active بقاعدة البيانات. علامة «صنف مميز» تحتاج عمودًا إضافيًا إذا أردت مزامنتها بين جميع الأجهزة.") }}</p>
             <div class="admin-inline">
-              <button class="primary-button" type="submit" :disabled="adminBusy">{{ adminBusy ? 'جاري الحفظ...' : 'حفظ الصنف' }}</button>
+              <button class="primary-button" type="submit" :disabled="adminBusy">{{ t(adminBusy ? 'جاري الحفظ...' : 'حفظ الصنف') }}</button>
               <button class="secondary-button" type="button" @click="cancelProduct">{{ t("إلغاء") }}</button>
             </div>
           </form>
@@ -560,7 +560,7 @@
             <div class="admin-list-main">
               <strong>{{ product.name }}</strong>
               <small>{{ product.category }} · {{ money(product.price) }}</small>
-              <small>{{ product.available === false ? 'غير متاح' : 'متاح' }}</small>
+              <small>{{ t(product.available === false ? 'غير متاح' : 'متاح') }}</small>
             </div>
             <button class="secondary-button" @click="editProduct(product)">{{ t("تعديل") }}</button>
             <button class="danger-button" @click="deleteProduct(product.id)">{{ t("إيقاف") }}</button>
@@ -573,7 +573,7 @@
           <p class="hint">{{ t("أضف رابط صورة عامًّا يبدأ بـ https:// . الصور الفعالة تُقرأ من جدول slides.") }}</p>
 
           <form class="admin-form" @submit.prevent="saveSlide">
-            <h4>{{ slideForm.id ? 'تعديل صورة' : 'إضافة صورة' }}</h4>
+            <h4>{{ t(slideForm.id ? 'تعديل صورة' : 'إضافة صورة') }}</h4>
             <label>{{ t("رابط الصورة *") }}
               <input v-model.trim="slideForm.image" type="url" required placeholder="https://..." />
             </label>
@@ -581,7 +581,7 @@
               <input v-model.trim="slideForm.caption" :placeholder="t('أهلاً بيك في سومر')" />
             </label>
             <div class="admin-inline">
-              <button class="primary-button" type="submit" :disabled="adminBusy">{{ slideForm.id ? 'حفظ التعديلات' : 'إضافة الصورة' }}</button>
+              <button class="primary-button" type="submit" :disabled="adminBusy">{{ t(slideForm.id ? 'حفظ التعديلات' : 'إضافة الصورة') }}</button>
               <button class="secondary-button" type="button" @click="resetSlideForm">{{ t("تفريغ الحقول") }}</button>
             </div>
           </form>
@@ -594,7 +594,7 @@
           <article v-for="(slide, index) in slides" :key="slide.id" class="slide-admin-item">
             <img :src="slide.image" :alt="slide.caption" @error="onImageError" />
             <div class="admin-list-main">
-              <strong>{{ slide.caption || 'صورة بدون عنوان' }}</strong>
+              <strong>{{ t(slide.caption || 'صورة بدون عنوان') }}</strong>
               <small>{{ t("الترتيب:") }} {{ index + 1 }}</small>
             </div>
             <button class="secondary-button" :disabled="index === 0" @click="moveSlide(index, -1)">↑</button>
@@ -609,7 +609,7 @@
           <h3>{{ t("مناطق التوصيل والوقت والسعر") }}</h3>
           <p class="hint">{{ t("كل منطقة لها اسم مستقل، ووقت متوقع للتوصيل بالدقائق، ورسوم توصيل بالجنيه. العميل هيشوف البيانات الثلاثة قبل اختيار طريقة الدفع.") }}</p>
           <form class="admin-form" @submit.prevent="saveArea">
-            <h4>{{ areaForm.id ? 'تعديل المنطقة' : 'إضافة منطقة' }}</h4>
+            <h4>{{ t(areaForm.id ? 'تعديل المنطقة' : 'إضافة منطقة') }}</h4>
             <div class="form-grid">
               <label>{{ t("اسم المنطقة *") }}
                 <input v-model.trim="areaForm.name" required :placeholder="t('مثال: مدينة نصر')" />
@@ -623,7 +623,7 @@
             </div>
             <label class="checkbox-label"><input v-model="areaForm.active" type="checkbox" /> {{ t("المنطقة متاحة للتوصيل") }}</label>
             <div class="admin-inline">
-              <button class="primary-button" type="submit" :disabled="adminBusy">{{ adminBusy ? 'جاري الحفظ...' : 'حفظ المنطقة' }}</button>
+              <button class="primary-button" type="submit" :disabled="adminBusy">{{ t(adminBusy ? 'جاري الحفظ...' : 'حفظ المنطقة') }}</button>
               <button class="secondary-button" type="button" @click="resetAreaForm">{{ t("إلغاء") }}</button>
             </div>
           </form>
@@ -632,7 +632,7 @@
             <div class="admin-list-main">
               <strong>{{ area.name }}</strong>
               <small>{{ t("وقت التوصيل:") }} {{ formatDeliveryMinutes(area.deliveryMinutes) }}</small>
-                <small>{{ t("رسوم التوصيل:") }} {{ money(area.fee) }} · {{ area.active ? 'متاحة' : 'متوقفة' }}</small>
+                <small>{{ t("رسوم التوصيل:") }} {{ money(area.fee) }} · {{ t(area.active ? 'متاحة' : 'متوقفة') }}</small>
             </div>
             <button class="secondary-button" @click="editArea(area)">{{ t("تعديل") }}</button>
             <button class="danger-button" @click="deleteArea(area.id)">{{ t("إيقاف") }}</button>
@@ -697,7 +697,7 @@
 
             <p class="hint">{{ t("اسم المطعم والهاتف وواتساب والعنوان والمواعيد وبيانات الدفع وروابط التواصل ورابط المنيو وخيار QR تُحفظ في قاعدة البيانات وتظهر لكل الزوار. الألوان والوصف المختصر ومدة السلايدر محفوظة محليًا في هذا المتصفح.") }}</p>
             <div class="admin-inline">
-              <button class="primary-button" type="submit" :disabled="adminBusy">{{ adminBusy ? 'جاري الحفظ...' : 'حفظ البيانات' }}</button>
+              <button class="primary-button" type="submit" :disabled="adminBusy">{{ t(adminBusy ? 'جاري الحفظ...' : 'حفظ البيانات') }}</button>
             </div>
           </form>
         </div>
@@ -709,10 +709,10 @@
             <span class="brand-mark">S</span>
             <h2>{{ t(settings.name || 'سومر') }}</h2>
             <p>{{ t(settings.tagline) }}</p>
-            <p>{{ t("العنوان:") }} {{ settings.address || 'غير محدد' }}</p>
-            <p>{{ t("الهاتف:") }} {{ settings.phone || 'غير محدد' }}</p>
-            <p>{{ t("واتساب:") }} {{ settings.whatsapp || 'غير محدد' }}</p>
-            <p>{{ t("مواعيد العمل:") }} {{ settings.hours || 'غير محددة' }}</p>
+            <p>{{ t("العنوان:") }} {{ t(settings.address || 'غير محدد') }}</p>
+            <p>{{ t("الهاتف:") }} {{ t(settings.phone || 'غير محدد') }}</p>
+            <p>{{ t("واتساب:") }} {{ t(settings.whatsapp || 'غير محدد') }}</p>
+            <p>{{ t("مواعيد العمل:") }} {{ t(settings.hours || 'غير محددة') }}</p>
             <button class="secondary-button" @click="copyRestaurantData">{{ t("نسخ بيانات المطعم") }}</button>
           </div>
 
@@ -727,7 +727,7 @@
           <article class="integration-card">
             <div><strong>WhatsApp</strong><p>{{ t("رابط التواصل المباشر مع المطعم.") }}</p></div>
             <span :class="['status-pill', settings.whatsapp ? 'connected' : 'disconnected']">
-              {{ settings.whatsapp ? 'الرقم مُدخل' : 'يحتاج إعداد' }}
+              {{ t(settings.whatsapp ? 'الرقم مُدخل' : 'يحتاج إعداد') }}
             </span>
             <a v-if="settings.whatsapp" :href="whatsappUrl" target="_blank" rel="noopener">{{ t("اختبار الرابط") }}</a>
           </article>
@@ -735,21 +735,21 @@
           <article class="integration-card">
             <div><strong>Facebook</strong><p>{{ t("صفحة المطعم الرسمية.") }}</p></div>
             <span class="status-pill" :class="hasSocial('Facebook') ? 'connected' : 'disconnected'">
-              {{ hasSocial('Facebook') ? 'الرابط مُدخل' : 'غير مربوط' }}
+              {{ t(hasSocial('Facebook') ? 'الرابط مُدخل' : 'غير مربوط') }}
             </span>
           </article>
 
           <article class="integration-card">
             <div><strong>Instagram</strong><p>{{ t("حساب المطعم على إنستجرام.") }}</p></div>
             <span class="status-pill" :class="hasSocial('Instagram') ? 'connected' : 'disconnected'">
-              {{ hasSocial('Instagram') ? 'الرابط مُدخل' : 'غير مربوط' }}
+              {{ t(hasSocial('Instagram') ? 'الرابط مُدخل' : 'غير مربوط') }}
             </span>
           </article>
 
           <article class="integration-card">
             <div><strong>{{ t("قاعدة بيانات Supabase") }}</strong><p>{{ t("تحميل المنتجات ومناطق التوصيل والإعدادات وحفظ الطلبات.") }}</p></div>
             <span :class="['status-pill', databaseConnected ? 'connected' : 'disconnected']">
-              {{ databaseConnected ? 'اتصال قاعدة البيانات ناجح' : 'الاتصال لم يكتمل' }}
+              {{ t(databaseConnected ? 'اتصال قاعدة البيانات ناجح' : 'الاتصال لم يكتمل') }}
             </span>
           </article>
 
@@ -1138,7 +1138,76 @@ const EN_TRANSLATIONS = {
   "وقت التجهيز غير محدد لهذا الطلب": "Preparation time is not specified for this order.",
   "الوقت المتوقع غير متاح": "Estimated time unavailable",
   "الوقت المتوقع انتهى — بنحدّث حالة الطلب": "Estimated time has passed — updating order status",
-  "متبقي ": "Remaining "
+  "متبقي ": "Remaining ",
+  "غير متاح": "Not available",
+  "+ أضف للسلة": "+ Add to cart",
+  "جاري إرسال الطلب...": "Submitting order...",
+  "تأكيد الطلب وإرسال الأوردر": "Confirm and place order",
+  "تم قبول إرسال الصور": "Image sending accepted",
+  "لم يتم تأكيد إرسال صور الأصناف": "Item images sending not confirmed",
+  "جاري التحقق...": "Verifying...",
+  "تسجيل الدخول": "Sign in",
+  "جاري التحديث...": "Refreshing...",
+  "تحديث الإيصالات": "Refresh receipts",
+  "تحديث صورة الإيصال": "Update receipt image",
+  "عرض صورة الإيصال هنا": "View receipt image here",
+  "جاري الحفظ...": "Saving...",
+  "حفظ حساب الموظف / تحديث كلمة المرور": "Save staff account / update password",
+  "جاري التحميل...": "Loading...",
+  "تحديث القائمة": "Refresh list",
+  "رسالة اختبار": "Test message",
+  "تعديل الصنف": "Edit item",
+  "إضافة صنف جديد": "Add new item",
+  "حفظ الصنف": "Save item",
+  "متاح": "Available",
+  "تعديل صورة": "Edit slide",
+  "إضافة صورة": "Add slide",
+  "حفظ التعديلات": "Save changes",
+  "إضافة الصورة": "Add slide",
+  "صورة بدون عنوان": "Untitled slide",
+  "تعديل المنطقة": "Edit area",
+  "إضافة منطقة": "Add area",
+  "حفظ المنطقة": "Save area",
+  "متاحة": "Available",
+  "متوقفة": "Disabled",
+  "حفظ البيانات": "Save settings",
+  "غير محدد": "Not specified",
+  "غير محددة": "Not specified",
+  "لم يضف المطعم رقم المحفظة بعد": "The restaurant has not added its wallet number yet",
+  "لم يضف المطعم بيانات إنستاباي بعد": "The restaurant has not added its InstaPay details yet",
+  "الرقم مُدخل": "Number added",
+  "يحتاج إعداد": "Setup required",
+  "الرابط مُدخل": "Link added",
+  "اتصال قاعدة البيانات ناجح": "Database connected successfully",
+  "الاتصال لم يكتمل": "Connection incomplete",
+  "مثال: مدينة نصر": "e.g., Nasr City",
+  "أدخل البيانات الحقيقية": "Enter real details",
+  "اسم الرابط": "Link name",
+  "عنوان الرابط": "Link URL",
+  "معاينة إيصال التحويل المختار": "Preview selected transfer receipt",
+  "اكتب رقم مرجع التحويل الظاهر في الإيصال": "Enter the transfer reference shown on the receipt",
+  "أي تفاصيل تساعد في توصيل الطلب": "Any details that may help with delivery",
+  "كلمة مرور حساب الموظف": "Staff account password",
+  "مشويات، مقبلات...": "Grills, appetizers...",
+  "أضف عنوان المطعم من لوحة الإدارة": "Add the restaurant address in the admin panel",
+  "أضف رقم الهاتف من لوحة الإدارة": "Add the phone number in the admin panel",
+  "أضف مواعيد العمل من لوحة الإدارة": "Add opening hours in the admin panel",
+  "الاسم": "Name",
+  "إضافة رابط": "Add link",
+  "عنوان المحفظة": "Wallet number",
+  "إيصال التحويل للأوردر ": "Transfer receipt for order ",
+  "التبديل إلى العربية": "Switch to Arabic",
+  "الصورة السابقة": "Previous image",
+  "الصورة التالية": "Next image",
+  "ابحث عن أكلة...": "Search for a dish...",
+  "اسم العميل": "Customer name",
+  "اختياري": "Optional",
+  "اسم الشارع": "Street name",
+  "رقم المبنى أو العمارة": "Building number",
+  "رقم الدور": "Floor number",
+  "الهاتف": "Phone",
+  "إدارة الموقع والإعدادات": "Site administration and settings",
+  "من قلب الشام، نقدم لك تجربة طعام تجمع بين الأصالة والنكهة التي لا تُنسى.": "From the heart of Syria, we offer a dining experience full of authenticity and unforgettable flavor."
 }
 
 const LANGUAGE_STORAGE_KEY = 'sumer-language-v1'
