@@ -6,7 +6,7 @@
     <a href="#home" class="brand">
       <span class="brand-mark">S</span>
       <span>
-        <strong>{{ settings.name || 'سومر' }}</strong>
+        <strong>{{ t(settings.name || 'سومر') }}</strong>
         <small>SYRIAN RESTAURANT</small>
       </span>
     </a>
@@ -23,7 +23,7 @@
       <a v-if="settings.whatsapp" class="whatsapp-top" :href="whatsappUrl" target="_blank" rel="noopener">{{ t("واتساب") }}</a>
       <button class="cart-button" @click="cartOpen = true">{{ t("🛒 السلة") }} <span>{{ cartCount }}</span></button>
       <a class="orders-dashboard-top-link" :href="ordersDashboardUrl">{{ t("لوحة الأوردرات") }}</a>
-      <button class="icon-button" :title="t("إدارة الموقع والإعدادات")" @click="openAdmin">⚙</button>
+      <button class="icon-button" :title="t('إدارة الموقع والإعدادات')" @click="openAdmin">⚙</button>
     </div>
   </header>
 
@@ -32,7 +32,7 @@
     <section id="home" class="hero" :style="heroStyle">
       <div class="hero-shade"></div>
 
-      <button v-if="slides.length > 1" class="slide-arrow prev" :aria-label="t("الصورة السابقة")" @click="changeSlide(-1)">❯</button>
+      <button v-if="slides.length > 1" class="slide-arrow prev" :aria-label="t('الصورة السابقة')" @click="changeSlide(-1)">❯</button>
 
       <div class="hero-content">
         <span class="eyebrow">{{ t("أصالة الشام في كل لقمة") }}</span>
@@ -41,7 +41,7 @@
         <a href="#menu" class="primary-button">{{ t("اكتشف المنيو") }}</a>
       </div>
 
-      <button v-if="slides.length > 1" class="slide-arrow next" :aria-label="t("الصورة التالية")" @click="changeSlide(1)">❮</button>
+      <button v-if="slides.length > 1" class="slide-arrow next" :aria-label="t('الصورة التالية')" @click="changeSlide(1)">❮</button>
 
       <div class="slide-dots">
         <button
@@ -64,12 +64,12 @@
     <section id="menu" class="section menu-section">
       <div class="section-heading">
         <span class="eyebrow">{{ t("اكتشف مذاق الشام") }}</span>
-        <h2>{{ t("منيو") }} <em>{{ settings.name || 'سومر' }}</em></h2>
+        <h2>{{ t("منيو") }} <em>{{ t(settings.name || 'سومر') }}</em></h2>
         <p>{{ t("اختار أطباقك المفضلة واطلبها بسهولة.") }}</p>
       </div>
 
       <div class="menu-tools">
-        <input v-model.trim="search" :placeholder="t("ابحث عن أكلة...")" />
+        <input v-model.trim="search" :placeholder="t('ابحث عن أكلة...')" />
         <div class="categories">
           <button
             v-for="category in categories"
@@ -118,7 +118,7 @@
       </div>
       <div class="about-copy">
         <span class="eyebrow">{{ t("حكاية وطعم") }}</span>
-        <h2>{{ t("أهلاً بيك في") }} {{ settings.name || 'سومر' }}</h2>
+        <h2>{{ t("أهلاً بيك في") }} {{ t(settings.name || 'سومر') }}</h2>
         <p>{{ t(settings.tagline) }}</p>
         <p>{{ t("نسعى لتقديم تجربة طعام مميزة، تجمع بين جودة المكونات وروح المطبخ الشامي.") }}</p>
         <a href="#menu" class="primary-button">{{ t("شوف المنيو") }}</a>
@@ -152,7 +152,7 @@
   <!-- الفوتر -->
   <footer class="footer">
     <div>
-      <a href="#home" class="footer-brand">{{ settings.name || 'سومر' }}</a>
+      <a href="#home" class="footer-brand">{{ t(settings.name || 'سومر') }}</a>
       <p>{{ t(settings.tagline) }}</p>
     </div>
 
@@ -162,7 +162,7 @@
       <a v-if="settings.whatsapp" :href="whatsappUrl" target="_blank" rel="noopener">{{ t("واتساب") }}</a>
     </div>
 
-    <small>© {{ new Date().getFullYear() }} {{ settings.name || 'سومر' }} {{ t("— نسخة تجريبية") }}</small>
+    <small>© {{ new Date().getFullYear() }} {{ t(settings.name || 'سومر') }} {{ t("— نسخة تجريبية") }}</small>
     <button class="admin-footer-link" @click="openAdmin">{{ t("إدارة الموقع ⚙") }}</button>
   </footer>
 
@@ -215,13 +215,13 @@
 
           <div class="form-grid">
             <label>{{ t("الاسم بالكامل *") }}
-              <input v-model.trim="checkout.name" required maxlength="100" :placeholder="t("اسم العميل")" />
+              <input v-model.trim="checkout.name" required maxlength="100" :placeholder="t('اسم العميل')" />
             </label>
             <label>{{ t("رقم الهاتف الأساسي *") }}
               <input v-model.trim="checkout.phone" required type="tel" maxlength="25" placeholder="01xxxxxxxxx" />
             </label>
             <label>{{ t("رقم هاتف بديل") }}
-              <input v-model.trim="checkout.phone2" type="tel" maxlength="25" :placeholder="t("اختياري")" />
+              <input v-model.trim="checkout.phone2" type="tel" maxlength="25" :placeholder="t('اختياري')" />
             </label>
             <label>{{ t("المنطقة *") }}
               <select v-model="checkout.areaId" required>
@@ -232,16 +232,16 @@
               </select>
             </label>
             <label>{{ t("اسم الشارع *") }}
-              <input v-model.trim="checkout.street" required maxlength="150" :placeholder="t("اسم الشارع")" />
+              <input v-model.trim="checkout.street" required maxlength="150" :placeholder="t('اسم الشارع')" />
             </label>
             <label>{{ t("رقم المبنى / العمارة") }}
-              <input v-model.trim="checkout.building" maxlength="80" :placeholder="t("رقم المبنى أو العمارة")" />
+              <input v-model.trim="checkout.building" maxlength="80" :placeholder="t('رقم المبنى أو العمارة')" />
             </label>
             <label>{{ t("الدور") }}
-              <input v-model.trim="checkout.floor" maxlength="20" :placeholder="t("رقم الدور")" />
+              <input v-model.trim="checkout.floor" maxlength="20" :placeholder="t('رقم الدور')" />
             </label>
             <label>{{ t("رقم الشقة") }}
-              <input v-model.trim="checkout.apartment" maxlength="20" :placeholder="t("رقم الشقة")" />
+              <input v-model.trim="checkout.apartment" maxlength="20" :placeholder="t('رقم الشقة')" />
             </label>
           </div>
 
@@ -323,15 +323,15 @@
               <small class="hint">{{ t("اختار صورة الإيصال من معرض الصور. بعد تأكيد الطلب هتتربط برقم الأوردر وتتبعت للمطعم على واتساب.") }}</small>
             </label>
             <p v-if="proofFileName" class="hint">{{ t("تم اختيار الصورة:") }} {{ proofFileName }}</p>
-            <img v-if="paymentProofPreviewUrl" class="payment-proof-selection-preview" :src="paymentProofPreviewUrl" :alt="t("معاينة إيصال التحويل المختار")" />
+            <img v-if="paymentProofPreviewUrl" class="payment-proof-selection-preview" :src="paymentProofPreviewUrl" :alt="t('معاينة إيصال التحويل المختار')" />
             <label class="upload-label">{{ t("رقم مرجع التحويل / رقم العملية (لو ظاهر في الإيصال)") }}
-              <input v-model.trim="checkout.paymentReference" maxlength="120" :placeholder="t("اكتب رقم مرجع التحويل الظاهر في الإيصال")" />
+              <input v-model.trim="checkout.paymentReference" maxlength="120" :placeholder="t('اكتب رقم مرجع التحويل الظاهر في الإيصال')" />
             </label>
             <p class="hint">{{ t("حالة الدفع هتفضل «مراجعة مطلوبة» لحد ما الإدارة تراجع الإيصال وتؤكد استلام المبلغ.") }}</p>
           </div>
 
           <label>{{ t("ملاحظات إضافية") }}
-            <textarea v-model.trim="checkout.notes" rows="2" maxlength="500" :placeholder="t("أي تفاصيل تساعد في توصيل الطلب")"></textarea>
+            <textarea v-model.trim="checkout.notes" rows="2" maxlength="500" :placeholder="t('أي تفاصيل تساعد في توصيل الطلب')"></textarea>
           </label>
 
           <p v-if="orderError" class="hint error-message">{{ t(orderError) }}</p>
@@ -385,7 +385,7 @@
             <input v-model.trim="adminEmail" type="email" autocomplete="off" name="sumer-admin-email" placeholder="admin@example.com" required />
           </label>
           <label>{{ t("كلمة المرور") }}
-            <input v-model="adminPassword" type="password" autocomplete="new-password" name="sumer-admin-password" :placeholder="t("كلمة المرور")" required />
+            <input v-model="adminPassword" type="password" autocomplete="new-password" name="sumer-admin-password" :placeholder="t('كلمة المرور')" required />
           </label>
           <p v-if="loginError" class="error-message">{{ t(loginError) }}</p>
           <button class="primary-button full-button" type="submit" :disabled="adminBusy">
@@ -466,7 +466,7 @@
               <input v-model.trim="staffPhone" type="tel" inputmode="tel" required maxlength="24" autocomplete="off" placeholder="01012345678" />
             </label>
             <label>{{ t("كلمة مرور الموظف (8 أحرف على الأقل) *") }}
-              <input v-model="staffPassword" type="password" required minlength="8" maxlength="128" autocomplete="new-password" :placeholder="t("كلمة مرور حساب الموظف")" />
+              <input v-model="staffPassword" type="password" required minlength="8" maxlength="128" autocomplete="new-password" :placeholder="t('كلمة مرور حساب الموظف')" />
             </label>
             <div class="admin-inline">
               <button class="primary-button" type="submit" :disabled="adminBusy">{{ adminBusy ? 'جاري الحفظ...' : 'حفظ حساب الموظف / تحديث كلمة المرور' }}</button>
@@ -535,7 +535,7 @@
                 <input v-model.number="productForm.price" type="number" min="0" step="0.01" required />
               </label>
               <label>{{ t("القسم *") }}
-                <input v-model.trim="productForm.category" required :placeholder="t("مشويات، مقبلات...")" />
+                <input v-model.trim="productForm.category" required :placeholder="t('مشويات، مقبلات...')" />
               </label>
               <label>{{ t("رابط صورة الصنف") }}
                 <input v-model.trim="productForm.image" type="url" placeholder="https://..." />
@@ -578,7 +578,7 @@
               <input v-model.trim="slideForm.image" type="url" required placeholder="https://..." />
             </label>
             <label>{{ t("العنوان الظاهر على الصورة") }}
-              <input v-model.trim="slideForm.caption" :placeholder="t("أهلاً بيك في سومر")" />
+              <input v-model.trim="slideForm.caption" :placeholder="t('أهلاً بيك في سومر')" />
             </label>
             <div class="admin-inline">
               <button class="primary-button" type="submit" :disabled="adminBusy">{{ slideForm.id ? 'حفظ التعديلات' : 'إضافة الصورة' }}</button>
@@ -612,7 +612,7 @@
             <h4>{{ areaForm.id ? 'تعديل المنطقة' : 'إضافة منطقة' }}</h4>
             <div class="form-grid">
               <label>{{ t("اسم المنطقة *") }}
-                <input v-model.trim="areaForm.name" required :placeholder="t("مثال: مدينة نصر")" />
+                <input v-model.trim="areaForm.name" required :placeholder="t('مثال: مدينة نصر')" />
               </label>
               <label>{{ t("الوقت المتوقع للتوصيل (بالدقائق) *") }}
                 <input v-model.number="areaForm.deliveryMinutes" type="number" min="5" max="360" step="5" required />
@@ -660,10 +660,10 @@
                 <input v-model.trim="settings.hours" />
               </label>
               <label>{{ t("عنوان المحفظة - فودافون كاش") }}
-                <input v-model.trim="settings.vodafoneWallet" :placeholder="t("أدخل البيانات الحقيقية")" />
+                <input v-model.trim="settings.vodafoneWallet" :placeholder="t('أدخل البيانات الحقيقية')" />
               </label>
               <label>{{ t("بيانات إنستاباي") }}
-                <input v-model.trim="settings.instapayAddress" :placeholder="t("أدخل البيانات الحقيقية")" />
+                <input v-model.trim="settings.instapayAddress" :placeholder="t('أدخل البيانات الحقيقية')" />
               </label>
               <label>{{ t("رابط الموقع المنشور") }}
                 <input v-model.trim="settings.publicUrl" type="url" placeholder="https://..." />
@@ -689,8 +689,8 @@
 
             <h4>{{ t("روابط التواصل الاجتماعي") }}</h4>
             <div v-for="link in socialLinks" :key="link.id" class="social-edit-row">
-              <input v-model="link.label" :aria-label="t("اسم الرابط")" :placeholder="t("اسم الرابط")" />
-              <input v-model="link.url" :aria-label="t("عنوان الرابط")" type="url" placeholder="https://..." />
+              <input v-model="link.label" :aria-label="t('اسم الرابط')" :placeholder="t('اسم الرابط')" />
+              <input v-model="link.url" :aria-label="t('عنوان الرابط')" type="url" placeholder="https://..." />
               <button class="danger-button" type="button" @click="removeSocialLink(link.id)">{{ t("حذف") }}</button>
             </div>
             <button class="secondary-button" type="button" @click="addSocialLink">{{ t("+ إضافة رابط تواصل") }}</button>
@@ -707,7 +707,7 @@
           <h3>{{ t("بطاقة بيانات المطعم") }}</h3>
           <div class="data-card">
             <span class="brand-mark">S</span>
-            <h2>{{ settings.name || 'سومر' }}</h2>
+            <h2>{{ t(settings.name || 'سومر') }}</h2>
             <p>{{ t(settings.tagline) }}</p>
             <p>{{ t("العنوان:") }} {{ settings.address || 'غير محدد' }}</p>
             <p>{{ t("الهاتف:") }} {{ settings.phone || 'غير محدد' }}</p>
