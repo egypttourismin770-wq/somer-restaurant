@@ -1,15 +1,14 @@
 <template>
   <main class="orders-dashboard" dir="rtl">
     <header class="orders-header">
-      <a :href="siteUrl" class="orders-brand" aria-label="العودة إلى سومر">
+      <div class="orders-brand" aria-label="سومر - لوحة الأوردرات">
         <span class="orders-brand-mark">S</span>
         <span><strong>سومر</strong><small>لوحة الأوردرات</small></span>
-      </a>
+      </div>
       <div class="orders-header-actions">
         <button v-if="loggedIn" class="orders-secondary-button" type="button" @click="loadOrders" :disabled="loading">
           {{ loading ? 'جاري التحديث...' : '↻ تحديث الأوردرات' }}
         </button>
-        <a class="orders-secondary-button" :href="siteUrl">العودة للموقع</a>
         <button v-if="loggedIn" class="orders-danger-button" type="button" @click="logout">تسجيل خروج</button>
       </div>
     </header>
@@ -20,8 +19,8 @@
         <h1>دخول لوحة الأوردرات</h1>
         <p>اللوحة دي مخصصة لمتابعة الطلبات وتحديث مراحلها فقط. مش بتعرض المنيو أو إيصالات الدفع أو إعدادات الموقع.</p>
         <form @submit.prevent="login">
-          <label>البريد الإلكتروني
-            <input v-model.trim="email" type="email" autocomplete="username" required placeholder="بريد حساب الموظف" />
+          <label>رقم التليفون
+            <input v-model.trim="phone" type="tel" inputmode="tel" autocomplete="tel" required maxlength="24" placeholder="01012345678" />
           </label>
           <label>كلمة المرور
             <input v-model="password" type="password" autocomplete="current-password" required minlength="8" placeholder="كلمة المرور" />
@@ -127,16 +126,32 @@
 </template>
 
 <script>
-import { supabase } from '../supabase'
+import { ordersSupabase as supabase } from '../supabase'
 
-const BASE_URL = (process.env.BASE_URL || '/').replace(/\/?$/, '/')
+function normaliseStaffPhone(value) {
+  const raw = String(value || '').trim()
+  const digits = raw.replace(/\D/g, '')
+  let canonical = ''
+
+  if (raw.startsWith('+')) canonical = '+' + digits
+  else if (digits.startsWith('00')) canonical = '+' + digits.slice(2)
+  else if (digits.length === 11 && digits.startsWith('0')) canonical = '+2' + digits
+  else if (digits.length === 12 && digits.startsWith('20')) canonical = '+' + digits
+  else if (digits.length === 10 && digits.startsWith('1')) canonical = '+20' + digits
+
+  return /^\+201[0125]\d{8}$/.test(canonical) ? canonical : ''
+}
+
+function staffLoginEmail(phone) {
+  // Internal Auth alias; the employee enters only phone + password.
+  return 'staff.' + phone.replace(/\D/g, '') + '@staff.sumer.invalid'
+}
 
 export default {
   name: 'OrdersDashboard',
   data() {
     return {
-      siteUrl: window.location.origin + BASE_URL,
-      email: '',
+      phone: '',
       password: '',
       loggedIn: false,
       authBusy: false,
@@ -201,8 +216,12 @@ export default {
       this.error = ''
       this.notice = ''
       try {
+        const canonicalPhone = normaliseStaffPhone(this.phone)
+        if (!canonicalPhone) {
+          throw new Error('اكتب رقم موبايل مصري صحيح يبدأ بـ 010 أو 011 أو 012 أو 015.')
+        }
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: this.email,
+          email: staffLoginEmail(canonicalPhone),
           password: this.password,
         })
         if (error) throw error
