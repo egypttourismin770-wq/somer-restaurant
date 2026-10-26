@@ -6,14 +6,12 @@
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
-import OrdersDashboard from './components/OrdersDashboard.vue'
-
 export default {
   name: 'App',
   components: {
-    HelloWorld,
-    OrdersDashboard
+    // Separate page bundles: the public site and delivery dashboard are loaded independently.
+    HelloWorld: () => import(/* webpackChunkName: "site-control" */ './components/HelloWorld.vue'),
+    OrdersDashboard: () => import(/* webpackChunkName: "orders-dashboard" */ './components/OrdersDashboard.vue')
   },
   computed: {
     isOrdersDashboard() {
