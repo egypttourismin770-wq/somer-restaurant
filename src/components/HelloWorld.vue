@@ -311,23 +311,41 @@
           <div v-if="checkout.paymentMethod !== 'cash'" class="payment-details">
             <strong>{{ t("بيانات الدفع") }}</strong>
             <p v-if="checkout.paymentMethod === 'vodafone'">
-              {{ t("حوّل المبلغ على محفظة فودافون كاش:") }} <strong>{{ t(settings.vodafoneWallet || 'لم يضف المطعم رقم المحفظة بعد') }}</strong>
+              {{ t("حوّل المبلغ على محفظة فودافون كاش:") }}
             </p>
             <p v-else>
-              {{ t("بيانات التحويل عبر إنستاباي:") }} <strong>{{ t(settings.instapayAddress || 'لم يضف المطعم بيانات إنستاباي بعد') }}</strong>
+              {{ t("بيانات التحويل عبر إنستاباي:") }}
             </p>
-            <p class="hint">{{ t("راجع الإجمالي النهائي أعلاه وحوّل نفس المبلغ. بعد التحويل، ارفع صورة الإيصال.") }}</p>
-            <label class="upload-label">
-              {{ t("صورة إيصال التحويل * (مطلوبة)") }}
-              <input id="payment-proof-upload" class="payment-proof-input" type="file" accept="image/*" required @change="handleProofUpload" />
-              <small class="hint">{{ t("اختار صورة الإيصال من معرض الصور. بعد تأكيد الطلب هتتربط برقم الأوردر وتتبعت للمطعم على واتساب.") }}</small>
-            </label>
-            <p v-if="proofFileName" class="hint">{{ t("تم اختيار الصورة:") }} {{ proofFileName }}</p>
-            <img v-if="paymentProofPreviewUrl" class="payment-proof-selection-preview" :src="paymentProofPreviewUrl" :alt="t('معاينة إيصال التحويل المختار')" />
-            <label class="upload-label">{{ t("رقم مرجع التحويل / رقم العملية (لو ظاهر في الإيصال)") }}
-              <input v-model.trim="checkout.paymentReference" maxlength="120" :placeholder="t('اكتب رقم مرجع التحويل الظاهر في الإيصال')" />
-            </label>
-            <p class="hint">{{ t("حالة الدفع هتفضل «مراجعة مطلوبة» لحد ما الإدارة تراجع الإيصال وتؤكد استلام المبلغ.") }}</p>
+
+            <div class="payment-account-row" dir="ltr">
+              <strong class="payment-account-value">{{ paymentAccountValue || '—' }}</strong>
+              <button class="copy-payment-button" type="button" :disabled="!paymentAccountValue" @click="copyPaymentDetails">
+                {{ paymentCopiedFor === checkout.paymentMethod ? t("تم النسخ ✓") : t("نسخ") }}
+              </button>
+            </div>
+
+            <p v-if="!paymentAccountValue" class="hint error-message">
+              {{ t("بيانات وسيلة الدفع دي مش مضافة. تواصل مع المطعم قبل إتمام الطلب.") }}
+            </p>
+            <p v-else-if="paymentCopiedFor !== checkout.paymentMethod" class="hint">
+              {{ t("اضغط «نسخ» لنسخ بيانات الدفع. بعد النسخ هتظهر خانة رفع صورة الإيصال.") }}
+            </p>
+            <p v-if="paymentCopyError" class="hint error-message">{{ t(paymentCopyError) }}</p>
+
+            <div v-if="paymentCopiedFor === checkout.paymentMethod" class="payment-proof-step">
+              <p class="hint">{{ t("حوّل المبلغ المطلوب، وبعدها ارفع صورة الإيصال لإكمال الطلب.") }}</p>
+              <label class="upload-label">
+                {{ t("صورة إيصال التحويل * (مطلوبة)") }}
+                <input id="payment-proof-upload" class="payment-proof-input" type="file" accept="image/jpeg,image/png,image/webp,image/avif" required @change="handleProofUpload" />
+                <small class="hint">{{ t("اختار صورة الإيصال من معرض الصور. بعد تأكيد الطلب هتتربط برقم الأوردر وتتبعت للمطعم على واتساب.") }}</small>
+              </label>
+              <p v-if="proofFileName" class="hint">{{ t("تم اختيار الصورة:") }} {{ proofFileName }}</p>
+              <img v-if="paymentProofPreviewUrl" class="payment-proof-selection-preview" :src="paymentProofPreviewUrl" :alt="t('معاينة إيصال التحويل المختار')" />
+              <label class="upload-label">{{ t("رقم مرجع التحويل / رقم العملية (لو ظاهر في الإيصال)") }}
+                <input v-model.trim="checkout.paymentReference" maxlength="120" :placeholder="t('اكتب رقم مرجع التحويل الظاهر في الإيصال')" />
+              </label>
+              <p class="hint">{{ t("حالة الدفع هتفضل «مراجعة مطلوبة» لحد ما الإدارة تراجع الإيصال وتؤكد استلام المبلغ.") }}</p>
+            </div>
           </div>
 
           <label>{{ t("ملاحظات إضافية") }}
@@ -1207,7 +1225,18 @@ const EN_TRANSLATIONS = {
   "رقم الدور": "Floor number",
   "الهاتف": "Phone",
   "إدارة الموقع والإعدادات": "Site administration and settings",
-  "من قلب الشام، نقدم لك تجربة طعام تجمع بين الأصالة والنكهة التي لا تُنسى.": "From the heart of Syria, we offer a dining experience full of authenticity and unforgettable flavor."
+  "من قلب الشام، نقدم لك تجربة طعام تجمع بين الأصالة والنكهة التي لا تُنسى.": "From the heart of Syria, we offer a dining experience full of authenticity and unforgettable flavor.",
+  "نسخ": "Copy",
+  "تم النسخ ✓": "Copied ✓",
+  "بيانات وسيلة الدفع دي مش مضافة. تواصل مع المطعم قبل إتمام الطلب.": "Payment details for this method are missing. Contact the restaurant before continuing.",
+  "اضغط «نسخ» لنسخ بيانات الدفع. بعد النسخ هتظهر خانة رفع صورة الإيصال.": "Tap “Copy” to copy the payment details. The receipt upload field will appear after copying.",
+  "حوّل المبلغ المطلوب، وبعدها ارفع صورة الإيصال لإكمال الطلب.": "Transfer the required amount, then upload the receipt image to complete the order.",
+  "تعذر نسخ بيانات الدفع. حاول الضغط على «نسخ» مرة أخرى.": "Could not copy the payment details. Please tap “Copy” again.",
+  "تم نسخ بيانات الدفع. ارفع صورة الإيصال الآن.": "Payment details copied. Upload the receipt now.",
+  "انسخ بيانات الدفع أولًا علشان تظهر خانة رفع الإيصال.": "Copy the payment details first to reveal the receipt upload field.",
+  "اسم الموظف": "Employee name",
+  "الطلبات الواردة": "Incoming orders",
+  "Welcome, ": "Welcome, "
 }
 
 const LANGUAGE_STORAGE_KEY = 'sumer-language-v1'
@@ -1284,6 +1313,8 @@ export default {
       proofFileName: '',
       paymentProofFile: null,
       paymentProofPreviewUrl: '',
+      paymentCopiedFor: '',
+      paymentCopyError: '',
       orderError: '',
       sending: false,
 
@@ -1400,6 +1431,12 @@ export default {
 
     cartTotal() {
       return this.cartSubtotal + this.selectedDeliveryFee
+    },
+
+    paymentAccountValue() {
+      if (this.checkout.paymentMethod === 'vodafone') return String(this.settings.vodafoneWallet || '').trim()
+      if (this.checkout.paymentMethod === 'instapay') return String(this.settings.instapayAddress || '').trim()
+      return ''
     },
 
     activeAreas() {
@@ -1520,6 +1557,17 @@ export default {
         this.persistDemo()
         this.startSlideshow()
       }
+    },
+
+    'checkout.paymentMethod'(newMethod, oldMethod) {
+      if (newMethod === oldMethod) return
+      this.paymentCopiedFor = ''
+      this.paymentCopyError = ''
+      this.orderError = ''
+      this.paymentProofFile = null
+      this.proofFileName = ''
+      this.checkout.paymentReference = ''
+      this.clearPaymentProofPreview()
     },
 
     slides: {
@@ -2456,6 +2504,8 @@ export default {
       this.cartOpen = false
       this.checkoutOpen = true
       this.checkoutStep = 1
+      this.paymentCopiedFor = ''
+      this.paymentCopyError = ''
       if (!this.activeAreas.some(area => String(area.id) === String(this.checkout.areaId))) {
         this.checkout.areaId = ''
       }
@@ -2485,6 +2535,40 @@ export default {
     returnToCustomerDetails() {
       this.checkoutStep = 1
       this.orderError = ''
+    },
+
+    async copyPaymentDetails() {
+      const method = this.checkout.paymentMethod
+      const account = String(this.paymentAccountValue || '').trim()
+      if (!['vodafone', 'instapay'].includes(method) || !account) {
+        this.paymentCopyError = 'بيانات وسيلة الدفع دي مش مضافة. تواصل مع المطعم قبل إتمام الطلب.'
+        return
+      }
+
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(account)
+        } else {
+          const field = document.createElement('textarea')
+          field.value = account
+          field.setAttribute('readonly', '')
+          field.style.position = 'fixed'
+          field.style.opacity = '0'
+          document.body.appendChild(field)
+          field.select()
+          const copied = document.execCommand('copy')
+          document.body.removeChild(field)
+          if (!copied) throw new Error('Clipboard copy failed')
+        }
+
+        this.paymentCopiedFor = method
+        this.paymentCopyError = ''
+        this.orderError = ''
+        this.showToast(this.t('تم نسخ بيانات الدفع. ارفع صورة الإيصال الآن.'))
+      } catch (error) {
+        console.warn('SUMER payment detail copy failed:', error)
+        this.paymentCopyError = 'تعذر نسخ بيانات الدفع. حاول الضغط على «نسخ» مرة أخرى.'
+      }
     },
 
     formatDeliveryMinutes(value) {
@@ -2548,6 +2632,11 @@ export default {
 
       if (this.checkout.paymentMethod === 'cash' && this.settings.cashOnDeliveryEnabled === false) {
         this.orderError = 'الدفع عند الاستلام غير متاح حاليًا.'
+        return
+      }
+
+      if (this.checkout.paymentMethod !== 'cash' && this.paymentCopiedFor !== this.checkout.paymentMethod) {
+        this.orderError = 'انسخ بيانات الدفع أولًا علشان تظهر خانة رفع الإيصال.'
         return
       }
 
@@ -4192,6 +4281,51 @@ textarea {
   border: 1px solid #58432f;
   border-radius: 8px;
   background: var(--card);
+}
+
+.payment-account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid rgba(213, 174, 105, .35);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, .18);
+}
+
+.payment-account-value {
+  min-width: 0;
+  color: var(--accent);
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.copy-payment-button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 8px 15px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: #171313;
+  background: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.copy-payment-button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.payment-proof-step {
+  padding-top: 5px;
+  border-top: 1px solid rgba(213, 174, 105, .16);
 }
 
 .payment-details p {
