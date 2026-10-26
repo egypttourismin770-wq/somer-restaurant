@@ -365,8 +365,10 @@ export default {
       await supabase.auth.signOut()
       this.loggedIn = false
       this.orders = []
+      this.displayName = ''
+      this.staffName = ''
       this.password = ''
-      this.email = ''
+      this.phone = ''
       this.error = ''
       this.notice = ''
     },
