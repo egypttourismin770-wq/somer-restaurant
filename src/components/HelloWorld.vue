@@ -1460,8 +1460,11 @@ export default {
     },
 
     ordersDashboardUrl() {
-      const base = (process.env.BASE_URL || '/').replace(/\/?$/, '/')
-      return base + 'orders/'
+      // Keep the dashboard link inside the GitHub Pages repository path.
+      const projectBase = window.location.pathname.startsWith('/somer-restaurant/')
+        ? '/somer-restaurant/'
+        : (process.env.BASE_URL || '/')
+      return new URL('orders/', new URL(projectBase, window.location.origin)).href
     },
 
     menuQrTarget() {
