@@ -8,14 +8,12 @@
           <small>SYRIAN RESTAURANT</small>
         </span>
       </a>
-      <a class="catalog-home-link" href="./">الموقع الرئيسي</a>
     </header>
 
     <section class="catalog-hero">
       <span class="catalog-eyebrow">SUMER · MENU</span>
       <h1>منيو {{ restaurantName }}</h1>
       <p>تصفّح الأصناف والصور والأسعار براحتك.</p>
-      <span class="catalog-view-only">قائمة للعرض فقط — لا يوجد طلب أو دفع من هذه الصفحة</span>
     </section>
 
     <section class="catalog-content" aria-label="قائمة الطعام">
@@ -55,7 +53,6 @@
             <p v-if="product.description">{{ product.description }}</p>
             <div class="catalog-price-row">
               <strong>{{ money(product.price) }}</strong>
-              <span>للعرض فقط</span>
             </div>
           </div>
         </article>
@@ -71,8 +68,6 @@
       <strong>{{ restaurantName }} · من قلب الشام</strong>
       <span v-if="phone">للاستفسار: {{ phone }}</span>
       <span v-if="address">{{ address }}</span>
-      <small>منيو للتصفح فقط — لا يتم إنشاء طلبات من هذه الصفحة.</small>
-      <a href="./">العودة للموقع الرئيسي</a>
     </footer>
   </main>
 </template>
@@ -237,15 +232,6 @@ export default {
 .catalog-brand strong, .catalog-brand small { display: block; }
 .catalog-brand strong { font-size: 19px; }
 .catalog-brand small { margin-top: 3px; color: #baa995; font-size: 10px; letter-spacing: .15em; }
-.catalog-home-link {
-  padding: 9px 13px;
-  border: 1px solid rgba(213, 174, 105, .5);
-  border-radius: 9px;
-  color: #f1d6a5;
-  text-decoration: none;
-  font-size: 12px;
-  font-weight: 800;
-}
 .catalog-hero {
   max-width: 1050px;
   margin: 0 auto;
@@ -255,16 +241,6 @@ export default {
 .catalog-eyebrow { color: #d5ae69; font-size: 11px; font-weight: 900; letter-spacing: .16em; }
 .catalog-hero h1 { margin: 12px 0 10px; font-size: clamp(30px, 5vw, 48px); }
 .catalog-hero p { color: #c6b8a9; margin: 0; line-height: 1.8; }
-.catalog-view-only {
-  display: inline-block;
-  margin-top: 17px;
-  padding: 8px 13px;
-  border: 1px solid rgba(213, 174, 105, .27);
-  border-radius: 30px;
-  color: #d9c7b0;
-  background: rgba(213, 174, 105, .07);
-  font-size: 11px;
-}
 .catalog-content { max-width: 1240px; min-height: 45vh; margin: 0 auto; padding: 0 24px 55px; }
 .catalog-controls { display: grid; gap: 15px; margin-bottom: 24px; }
 .catalog-search {
@@ -337,7 +313,6 @@ export default {
 .catalog-card p { min-height: 38px; margin: 0 0 15px; color: #bfae9e; font-size: 12px; line-height: 1.8; }
 .catalog-price-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid rgba(213,174,105,.17); }
 .catalog-price-row strong { color: #e8c37e; font-size: 16px; }
-.catalog-price-row span { color: #897a6c; font-size: 10px; }
 .catalog-state { padding: 48px 15px; text-align: center; color: #bfae9e; }
 .catalog-state strong { display: block; color: #f6e8d7; font-size: 16px; }
 .catalog-state p { font-size: 12px; line-height: 1.8; }
