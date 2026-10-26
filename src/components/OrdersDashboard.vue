@@ -18,12 +18,15 @@
         <span class="orders-eyebrow">SUMER · STAFF AREA</span>
         <h1>دخول لوحة الأوردرات</h1>
         <p>اللوحة دي مخصصة لمتابعة الطلبات وتحديث مراحلها فقط. مش بتعرض المنيو أو إيصالات الدفع أو إعدادات الموقع.</p>
-        <form @submit.prevent="login">
+        <form @submit.prevent="login" autocomplete="off">
+          <label>اسم الموظف
+            <input v-model.trim="staffName" name="sumer-staff-display-name" type="text" autocomplete="off" required maxlength="80" placeholder="اسم الموظف" />
+          </label>
           <label>رقم التليفون
-            <input v-model.trim="phone" type="tel" inputmode="tel" autocomplete="tel" required maxlength="24" placeholder="01012345678" />
+            <input v-model.trim="phone" name="sumer-staff-phone-login" type="tel" inputmode="tel" autocomplete="off" autocapitalize="off" spellcheck="false" required maxlength="24" placeholder="01012345678" />
           </label>
           <label>كلمة المرور
-            <input v-model="password" type="password" autocomplete="current-password" required minlength="8" placeholder="كلمة المرور" />
+            <input v-model="password" name="sumer-staff-password-login" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="كلمة المرور" />
           </label>
           <p v-if="error" class="orders-error" role="alert">{{ error }}</p>
           <button class="orders-primary-button" type="submit" :disabled="authBusy">
@@ -38,7 +41,7 @@
       <div class="orders-page-title">
         <div>
           <span class="orders-eyebrow">SUMER OPERATIONS</span>
-          <h1>الطلبات الواردة</h1>
+          <h1>{{ displayName ? (language === 'en' ? 'Welcome, ' + displayName : 'أهلاً، ' + displayName) : 'الطلبات الواردة' }}</h1>
           <p>حدّث حالة الطلب في كل مرحلة علشان باقي الفريق والعميل يتابعوا التقدم.</p>
         </div>
         <div class="orders-updated" v-if="updatedAt">آخر تحديث: {{ formatTime(updatedAt) }}</div>
@@ -151,6 +154,8 @@ export default {
   name: 'OrdersDashboard',
   data() {
     return {
+      staffName: '',
+      displayName: '',
       phone: '',
       password: '',
       loggedIn: false,
@@ -227,6 +232,7 @@ export default {
         if (error) throw error
         if (!data.user) throw new Error('تعذر تحديد حساب المستخدم.')
         this.loggedIn = true
+        this.displayName = this.staffName.trim()
         this.password = ''
         await this.loadOrders()
         this.startAutoRefresh()
